@@ -1,0 +1,960 @@
+#!/bin/bash
+# git-safe-commit: Serialize git commits to prevent concurrent staging conflicts
+#
+# Problem: When multiple sessions (autonomous, operator, meta-operator) run
+# concurrently on the same repo, they share .git/index. prek's stash/restore
+# cycle during pre-commit hooks can race with concurrent commits, causing:
+#   - Wrong files in commits (staged by another session)
+#   - prek stash-restore conflicts that silently revert edits
+#   - Wasted tokens re-doing work that was lost
+#
+# Solution: flock serializes the entire commit (including pre-commit hooks)
+# so prek's stash/restore is atomic from other sessions' perspective.
+#
+# Usage: git-safe-commit file1.py file2.py -m "feat: description"
+#        git-safe-commit --all-staged -m "chore: commit intentional staged set"
+#        (same arguments as `git commit`, plus optional --all-staged guard)
+#
+# See: https://github.com/ErikBjare/bob/issues/465
+
+set -uo pipefail
+
+GIT_DIR="$(git rev-parse --git-dir 2>/dev/null)" || true
+if [ -z "$GIT_DIR" ]; then
+    echo "error: not in a git repository" >&2
+    exit 1
+fi
+
+LOCKFILE="$GIT_DIR/commit.lock"
+
+NO_VERIFY=0
+ALLOW_ALL_STAGED=0
+ALLOW_EMPTY=0
+PATHSPEC_COUNT=0
+PATHSPECS=()
+PARSE_AFTER_DASHDASH=0
+SKIP_NEXT_ARG=0
+SKIP_NEXT_OPTIONAL_ARG=0
+PATHSPEC_FROM_FILE_NEXT=0
+PATHSPEC_FROM_FILE=""
+PATHSPEC_FILE_NUL=0
+FORWARD_ARGS=()
+PATHSPEC_STDIN_TMP=""
+MATERIALIZED_PATHSPEC_FILE=""
+
+# Invoked via trap; shellcheck cannot see the indirect call.
+# shellcheck disable=SC2317
+cleanup_pathspec_stdin_tmp() {
+    if [ -n "${PATHSPEC_STDIN_TMP}" ]; then
+        rm -f "${PATHSPEC_STDIN_TMP}"
+    fi
+}
+
+# Unstage-on-abort: index entries this run staged (stage_explicit_pathspecs)
+# must not stay staged when the run exits without committing. A
+# staged-but-uncommitted file in a shared worktree is live ammunition for the
+# sweep class: a sibling's branch switch / reset / commit flow can consume or
+# delete it (incident 2026-09-01: an aborted run left a new journal file
+# staged; it was swept from index AND disk before any commit existed).
+#
+# On abort, restore the exact pre-run index state for each path whose entry
+# OUR `git add` changed — and only while the entry still holds the dump our
+# add produced. Concretely, per path:
+#   - entry unchanged by our add                  → never touched
+#   - entry no longer matches our add's dump      → a sibling re-staged it
+#                                                   since; leave theirs alone
+#   - our add created the entry                   → remove it (file returns to
+#                                                   untracked on disk)
+#   - our add replaced a pre-existing entry       → put the prior ls-files
+#                                                   --stage dump back (stage 0
+#                                                   or unmerged 1/2/3)
+# Worktree files are never modified — only index entries.
+#
+# Concurrency contract:
+# - The EXIT trap runs while fd 9 still holds the commit flock (fds close
+#   after traps), so every git-safe-commit sibling is serialized against
+#   this cleanup.
+# - Staging (snapshot + git add + install) AND abort restore both take
+#   git's index.lock, copy the index, mutate the copy, and install via
+#   rename. A concurrent raw `git add` cannot create index.lock in either
+#   window — they error instead of being attributed to this run (pre-add
+#   snapshot race) or clobbered (abort restore race).
+# - Identical-blob restage: `git add` of content already in the index is a
+#   no-op (git does not rewrite the entry). That is still OUR staging and is
+#   restored. A sibling that staged a *different* dump is detected by the
+#   compare and left alone. Worktree files are never modified, so a
+#   sibling can re-add after this abort.
+GSC_ABORT_PATHS=()
+declare -A GSC_ABORT_BEFORE=() # path -> ls-files --stage dump ("" = no entry)
+declare -A GSC_ABORT_AFTER=()  # path -> ls-files --stage dump our add produced
+GSC_COMMIT_DONE=0
+GSC_HELD_INDEX_LOCK=""
+
+# Full `git ls-files --stage` dump for one path (all stages, newline-joined).
+# Empty string if the path is absent. Honors GIT_INDEX_FILE.
+# :(literal) so a path with glob characters cannot match extra entries.
+# shellcheck disable=SC2317  # reached only via the EXIT trap
+gsc_index_entry() {
+    local line out=""
+    while IFS= read -r -d '' line; do
+        [ -z "$line" ] && continue
+        if [ -n "$out" ]; then
+            out="$out"$'\n'"$line"
+        else
+            out="$line"
+        fi
+    done < <(git ls-files --stage -z -- ":(literal)$1" 2>/dev/null)
+    printf '%s' "$out"
+}
+
+# Fill nameref $1 (path -> dump) from `git ls-files --stage -z` of PATHSPECS.
+# Honors GIT_INDEX_FILE. Multiple stages for one path are newline-joined.
+gsc_load_ls_files_map() {
+    local -n _gsc_map=$1
+    local line path
+    _gsc_map=()
+    while IFS= read -r -d '' line; do
+        [ -z "$line" ] && continue
+        path="${line#*$'\t'}"
+        if [ -n "${_gsc_map[$path]:-}" ]; then
+            _gsc_map["$path"]="${_gsc_map[$path]}"$'\n'"$line"
+        else
+            _gsc_map["$path"]="$line"
+        fi
+    done < <(git ls-files --stage -z -- "${PATHSPECS[@]}" 2>/dev/null)
+}
+
+# Absolute path to a git-path (index, index.lock, …).
+gsc_absolute_git_path() {
+    local p
+    p="$(git rev-parse --path-format=absolute --git-path "$1" 2>/dev/null)" || p=""
+    if [ -n "$p" ] && [[ "$p" == /* ]]; then
+        echo "$p"
+        return 0
+    fi
+    p="$(git rev-parse --git-path "$1")"
+    if [[ "$p" != /* ]]; then
+        p="$(pwd)/$p"
+    fi
+    echo "$p"
+}
+
+# Restore one path's index dump (all stages) to its pre-run state.
+# Callers set GIT_INDEX_FILE to a private snapshot so this does not take
+# index.lock. $2 is the ls-files --stage dump, or "" (no entry).
+# shellcheck disable=SC2317  # reached only via the EXIT trap
+gsc_restore_index_entry() {
+    local path="$1" before="$2"
+    # Drop every stage currently recorded for this path (stage 0 or 1/2/3).
+    git update-index --force-remove -- "$path" 2>/dev/null || true
+    if [ -z "$before" ]; then
+        return 0
+    fi
+    # ls-files --stage lines are the --index-info format, including
+    # unmerged stage 1/2/3. This is how a collapsed stage-0 resolution
+    # is turned back into a conflict, and how a staged deletion is
+    # turned back into a stage-0 cache entry.
+    printf '%s\n' "$before" | git update-index --index-info 2>/dev/null
+    return $?
+}
+
+gsc_release_index_lock() {
+    if [ -n "${GSC_HELD_INDEX_LOCK}" ]; then
+        rm -f "${GSC_HELD_INDEX_LOCK}"
+        GSC_HELD_INDEX_LOCK=""
+    fi
+}
+
+# Acquire git's index.lock with O_EXCL (noclobber redirect). Retry through
+# transient contention from a concurrent git process.
+gsc_acquire_index_lock() {
+    local lock_path="$1" attempt
+    # shellcheck disable=SC2034  # loop counter, value unused
+    for attempt in 1 2 3 4 5; do
+        if (set -C; echo "git-safe-commit $$" > "$lock_path") 2>/dev/null; then
+            GSC_HELD_INDEX_LOCK="$lock_path"
+            return 0
+        fi
+        sleep 0.4
+    done
+    return 1
+}
+
+# shellcheck disable=SC2317  # reached only via the EXIT trap
+unstage_abandoned_pathspecs() {
+    if [ "$GSC_COMMIT_DONE" -eq 1 ] || [ "${#GSC_ABORT_PATHS[@]}" -eq 0 ]; then
+        return 0
+    fi
+    local path current restored=0 skipped=0 failed=0
+    local index_path lock_path tmp_index changed=0
+    local old_gif="${GIT_INDEX_FILE-}"
+
+    index_path="$(gsc_absolute_git_path index)"
+    lock_path="${index_path}.lock"
+    # Reuse a lock this process already holds (e.g. killed mid-stage) so
+    # we do not wait on ourselves and then skip the restore.
+    if [ -z "${GSC_HELD_INDEX_LOCK}" ]; then
+        if ! gsc_acquire_index_lock "$lock_path"; then
+            echo "warning: could not lock index to restore abort staging; paths may remain staged" >&2
+            return 0
+        fi
+    fi
+
+    tmp_index="$(mktemp "${index_path}.gsc.XXXXXX")" || {
+        echo "warning: could not snapshot index to restore abort staging; paths may remain staged" >&2
+        gsc_release_index_lock
+        return 0
+    }
+    # cp -p keeps the live index mode (mktemp is 0600). Installing a 0600
+    # copy would chmod .git/index as a side effect of abort cleanup.
+    if ! cp -p "$index_path" "$tmp_index"; then
+        echo "warning: could not snapshot index to restore abort staging; paths may remain staged" >&2
+        rm -f "$tmp_index"
+        gsc_release_index_lock
+        return 0
+    fi
+
+    GIT_INDEX_FILE="$tmp_index"
+    export GIT_INDEX_FILE
+    for path in "${GSC_ABORT_PATHS[@]}"; do
+        current="$(gsc_index_entry "$path")"
+        if [ "$current" != "${GSC_ABORT_AFTER[$path]}" ]; then
+            # The entry no longer matches the dump our add staged — a sibling
+            # (or the operator) re-staged this path after us. Theirs wins.
+            skipped=$((skipped + 1))
+            continue
+        fi
+        if gsc_restore_index_entry "$path" "${GSC_ABORT_BEFORE[$path]}"; then
+            restored=$((restored + 1))
+            changed=1
+        else
+            failed=$((failed + 1))
+            echo "warning: could not restore pre-run index state for '$path'; fix manually: git restore --staged -- '$path'" >&2
+        fi
+    done
+    if [ -n "$old_gif" ]; then
+        GIT_INDEX_FILE="$old_gif"
+        export GIT_INDEX_FILE
+    else
+        unset GIT_INDEX_FILE
+    fi
+
+    if [ "$changed" -eq 1 ]; then
+        # Git's install protocol: write the new index into index.lock, then
+        # rename over index. Concurrent writers fail at create(index.lock).
+        if mv "$tmp_index" "$lock_path" && mv "$lock_path" "$index_path"; then
+            GSC_HELD_INDEX_LOCK=""
+            tmp_index=""
+        else
+            echo "warning: failed to install restored index; paths may remain staged" >&2
+            gsc_release_index_lock
+        fi
+    else
+        gsc_release_index_lock
+    fi
+    [ -n "$tmp_index" ] && rm -f "$tmp_index"
+
+    if [ "$restored" -gt 0 ]; then
+        echo "note: unstaged ${restored} path(s) staged by this aborted run (files remain on disk)" >&2
+    fi
+    if [ "$skipped" -gt 0 ]; then
+        echo "note: left ${skipped} path(s) alone — re-staged by another process after this run" >&2
+    fi
+}
+
+# shellcheck disable=SC2317
+on_exit_cleanup() {
+    unstage_abandoned_pathspecs
+    cleanup_pathspec_stdin_tmp
+    gsc_release_index_lock
+}
+trap on_exit_cleanup EXIT
+
+# Copy stdin to a seekable temp file so we can both validate contents and
+# rewrite --pathspec-from-file=- for git commit (stdin cannot be rewound).
+# TTY stdin is treated as empty (/dev/null) so we never hang waiting for input.
+#
+# Writes the result to MATERIALIZED_PATHSPEC_FILE — must NOT use command
+# substitution, or PATHSPEC_STDIN_TMP (and the EXIT trap) would be lost
+# in the subshell.
+materialize_pathspec_file() {
+    local psfile="$1"
+    MATERIALIZED_PATHSPEC_FILE="$psfile"
+    if [ "$psfile" != "-" ]; then
+        return 0
+    fi
+    if [ -t 0 ]; then
+        MATERIALIZED_PATHSPEC_FILE="/dev/null"
+        return 0
+    fi
+    PATHSPEC_STDIN_TMP="$(mktemp "${TMPDIR:-/tmp}/git-safe-commit-pathspec.XXXXXX")" || {
+        echo "error: could not create temp file for --pathspec-from-file=-" >&2
+        exit 1
+    }
+    cat > "$PATHSPEC_STDIN_TMP"
+    MATERIALIZED_PATHSPEC_FILE="$PATHSPEC_STDIN_TMP"
+}
+
+# Returns 0 (true) if the pathspec is exclusion-only (e.g., :(exclude)foo, :!foo, :^foo).
+# Exclusion-only pathspecs don't positively select any files, so they must not be
+# counted toward PATHSPEC_COUNT — otherwise a commit with only exclusion args would
+# bypass the whole-index guard.
+is_exclusion_only_pathspec() {
+    local ps="$1"
+    # Strip C-quoted outer double-quotes, decoding common octal escapes
+    if [[ "$ps" == '"'* && "$ps" == *'"' ]]; then
+        local inner="${ps:1:${#ps}-2}"
+        inner="${inner//\\072/:}"   # \072 (octal) = ':'
+        inner="${inner//\\041/!}"   # \041 (octal) = '!'
+        ps="$inner"
+    fi
+    # Shorthand exclusion prefixes
+    case "$ps" in
+        ':!'*|':^'*) return 0 ;;
+    esac
+    # Long-form :(magic)path — look for 'exclude' in the comma-separated magic list
+    if [[ "$ps" == ':'* ]]; then
+        local rest="${ps:1}"
+        if [[ "$rest" == '('* ]]; then
+            local magic="${rest:1}"
+            magic="${magic%%)*}"
+            local IFS=','
+            for m in $magic; do
+                [[ "$m" == "exclude" ]] && return 0
+            done
+        fi
+    fi
+    return 1
+}
+
+# Returns 0 (true) if the file contains at least one positive (non-exclusion) pathspec.
+# Used for --pathspec-from-file validation: a file of only exclusion lines or blank
+# lines is treated as "no explicit positive pathspecs" for the whole-index guard.
+pathspec_file_has_positive() {
+    local psfile="$1"
+    # /dev/null, empty string, and unresolved stdin ('-') mean "no pathspecs".
+    # Callers should materialize '-' first; this is a safety net if they don't.
+    case "$psfile" in
+        /dev/null|''|-) return 1 ;;
+    esac
+    [ -f "$psfile" ] || return 1
+    local line
+    if [ "${PATHSPEC_FILE_NUL:-0}" -eq 1 ]; then
+        while IFS= read -r -d '' line || [ -n "$line" ]; do
+            [ -z "${line//[[:space:]]/}" ] && continue
+            if ! is_exclusion_only_pathspec "$line"; then
+                return 0
+            fi
+        done < "$psfile"
+        return 1
+    fi
+    while IFS= read -r line || [ -n "$line" ]; do
+        [ -z "${line//[[:space:]]/}" ] && continue
+        if ! is_exclusion_only_pathspec "$line"; then
+            return 0
+        fi
+    done < "$psfile"
+    return 1
+}
+
+# Rewrite FORWARD_ARGS so a materialized stdin pathspec file replaces '-'
+# (equals form or the following argument of --pathspec-from-file).
+rewrite_forward_pathspec_file() {
+    local original="$1"
+    local materialized="$2"
+    local fa skip_replace
+    local new_args=()
+    skip_replace=0
+    for fa in "${FORWARD_ARGS[@]}"; do
+        if [ "$skip_replace" -eq 1 ]; then
+            new_args+=("$materialized")
+            skip_replace=0
+            continue
+        fi
+        if [ "$fa" = "--pathspec-from-file" ]; then
+            new_args+=("$fa")
+            skip_replace=1
+            continue
+        fi
+        if [ "$fa" = "--pathspec-from-file=${original}" ]; then
+            new_args+=("--pathspec-from-file=${materialized}")
+            continue
+        fi
+        new_args+=("$fa")
+    done
+    FORWARD_ARGS=("${new_args[@]}")
+}
+
+for arg in "$@"; do
+    if [ "$SKIP_NEXT_ARG" -eq 1 ]; then
+        SKIP_NEXT_ARG=0
+        FORWARD_ARGS+=("$arg")
+        continue
+    fi
+
+    # -S/--gpg-sign takes an optional value; only consume the next arg as a key
+    # if it doesn't look like a new option flag.
+    if [ "$SKIP_NEXT_OPTIONAL_ARG" -eq 1 ]; then
+        SKIP_NEXT_OPTIONAL_ARG=0
+        if [[ "$arg" != -* ]]; then
+            FORWARD_ARGS+=("$arg")
+            continue
+        fi
+        # Arg starts with '-': it's a new flag, not a value — fall through
+    fi
+
+    # --pathspec-from-file <file>: record the path; validate after all flags
+    # so --pathspec-file-nul can appear before or after the file argument.
+    if [ "$PATHSPEC_FROM_FILE_NEXT" -eq 1 ]; then
+        PATHSPEC_FROM_FILE_NEXT=0
+        PATHSPEC_FROM_FILE="$arg"
+        FORWARD_ARGS+=("$arg")
+        continue
+    fi
+
+    if [ "$arg" = "--all-staged" ]; then
+        ALLOW_ALL_STAGED=1
+        continue
+    fi
+
+    if [ "$arg" = "--no-verify" ] || [ "$arg" = "-n" ]; then
+        NO_VERIFY=1
+    fi
+
+    if [ "$arg" = "--allow-empty" ]; then
+        ALLOW_EMPTY=1
+    fi
+
+    FORWARD_ARGS+=("$arg")
+
+    if [ "$PARSE_AFTER_DASHDASH" -eq 1 ]; then
+        if ! is_exclusion_only_pathspec "$arg"; then
+            PATHSPEC_COUNT=$((PATHSPEC_COUNT + 1))
+            PATHSPECS+=("$arg")
+        fi
+        continue
+    fi
+
+    case "$arg" in
+        --)
+            PARSE_AFTER_DASHDASH=1
+            ;;
+        -m|--message|-F|--file|-c|--reedit-message|-C|--reuse-message|--fixup|--squash|--author|--date|--trailer)
+            SKIP_NEXT_ARG=1
+            ;;
+        -S|--gpg-sign)
+            # -S/--gpg-sign has an optional key-id value; use the optional-skip
+            # path so we don't miscount the key as a pathspec.
+            SKIP_NEXT_OPTIONAL_ARG=1
+            ;;
+        --pathspec-from-file)
+            # Value is the next arg; defer counting until all flags are known.
+            PATHSPEC_FROM_FILE_NEXT=1
+            ;;
+        --pathspec-file-nul)
+            PATHSPEC_FILE_NUL=1
+            ;;
+        --message=*|--file=*|--author=*|--date=*|--fixup=*|--squash=*|--trailer=*|--gpg-sign=*)
+            ;;
+        --pathspec-from-file=*)
+            PATHSPEC_FROM_FILE="${arg#--pathspec-from-file=}"
+            ;;
+        -*)
+            ;;
+        *)
+            # Only count positively-selecting pathspecs; exclusion-only pathspecs
+            # (e.g., :(exclude)foo, :!foo) don't name files to include.
+            if ! is_exclusion_only_pathspec "$arg"; then
+                PATHSPEC_COUNT=$((PATHSPEC_COUNT + 1))
+                PATHSPECS+=("$arg")
+            fi
+            ;;
+    esac
+done
+
+# Validate --pathspec-from-file after the full parse so --pathspec-file-nul
+# is honored regardless of flag order.
+if [ -n "$PATHSPEC_FROM_FILE" ]; then
+    _original_psfile="$PATHSPEC_FROM_FILE"
+    materialize_pathspec_file "$PATHSPEC_FROM_FILE"
+    if [ "$MATERIALIZED_PATHSPEC_FILE" != "$_original_psfile" ]; then
+        rewrite_forward_pathspec_file "$_original_psfile" "$MATERIALIZED_PATHSPEC_FILE"
+    fi
+    if pathspec_file_has_positive "$MATERIALIZED_PATHSPEC_FILE"; then
+        PATHSPEC_COUNT=$((PATHSPEC_COUNT + 1))
+    fi
+fi
+
+if [ "$PATHSPEC_COUNT" -eq 0 ] && [ "$ALLOW_ALL_STAGED" -ne 1 ] && [ "$ALLOW_EMPTY" -ne 1 ]; then
+    echo "🚫 Refusing implicit whole-index commit in shared repo" >&2
+    echo "" >&2
+    echo "   Use explicit file paths with git-safe-commit so concurrent sessions" >&2
+    echo "   can't accidentally commit unrelated staged changes." >&2
+    echo "" >&2
+
+    # If the caller already staged specific files, show them and a ready-to-copy
+    # command. This turns the most common "git add X && git-safe-commit -m ..."
+    # antipattern into a one-step fix.
+    STAGED_FILES="$(git diff --cached --name-only 2>/dev/null)"
+    STAGED_COUNT=0
+    if [ -n "$STAGED_FILES" ]; then
+        STAGED_COUNT=$(printf '%s\n' "$STAGED_FILES" | grep -c '^' || echo 0)
+    fi
+    STAGED_SUGGEST_CAP=20
+
+    if [ "$STAGED_COUNT" -gt 0 ] && [ "$STAGED_COUNT" -le "$STAGED_SUGGEST_CAP" ]; then
+        echo "   You have $STAGED_COUNT file(s) already staged:" >&2
+        printf '%s\n' "$STAGED_FILES" | sed 's/^/     /' >&2
+        echo "" >&2
+        # Build the suggested command with shell-escaped staged paths on one line.
+        STAGED_ONE_LINE=""
+        while IFS= read -r staged_file; do
+            [ -z "$staged_file" ] && continue
+            printf -v staged_quoted '%q' "$staged_file"
+            STAGED_ONE_LINE="${STAGED_ONE_LINE:+$STAGED_ONE_LINE }$staged_quoted"
+        done <<< "$STAGED_FILES"
+        echo "   To commit exactly those files:" >&2
+        echo "     git-safe-commit $STAGED_ONE_LINE -m 'your message'" >&2
+        echo "" >&2
+        echo "   Or, to commit the entire staged set regardless:" >&2
+        echo "     git-safe-commit --all-staged -m 'your message'" >&2
+    else
+        echo "   If you intentionally want the entire staged set, rerun with:" >&2
+        echo "     git-safe-commit --all-staged -m 'your message'" >&2
+        echo "" >&2
+        echo "   Safer default:" >&2
+        echo "     git-safe-commit <file1> <file2> -m 'your message'" >&2
+    fi
+    echo "" >&2
+    exit 1
+fi
+
+check_index_corruption() {
+    # Run this under the commit lock so we see the latest index state after any
+    # waiting, not a stale snapshot from before lock acquisition.
+    local head_count tracked_count phantom_missing_count phantom_missing_sample
+    local phantom_sample_limit phantom_sample_count new_count
+    local phantom_missing_threshold
+
+    head_count=$(git ls-tree -r --name-only HEAD 2>/dev/null | wc -l)
+    tracked_count=$(git ls-files 2>/dev/null | wc -l)
+    phantom_missing_count=0
+    phantom_missing_sample=""
+    phantom_sample_limit=5
+    phantom_sample_count=0
+
+    if [ "$head_count" -gt 1000 ]; then
+        while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            if [ -e "$f" ] || [ -L "$f" ]; then
+                phantom_missing_count=$((phantom_missing_count + 1))
+                if [ "$phantom_sample_count" -lt "$phantom_sample_limit" ]; then
+                    phantom_missing_sample="${phantom_missing_sample}${f}
+"
+                    phantom_sample_count=$((phantom_sample_count + 1))
+                fi
+            fi
+        done < <(
+            comm -23 \
+                <(git ls-tree -r --name-only HEAD 2>/dev/null | sort) \
+                <(git ls-files 2>/dev/null | sort)
+        )
+    fi
+
+    phantom_missing_threshold=100
+    if [ "$head_count" -gt 1000 ] && [ "$phantom_missing_count" -gt "$phantom_missing_threshold" ]; then
+        echo "🚨 Git index corruption detected ($phantom_missing_count HEAD-tracked files missing from index but still on disk)" >&2
+        echo "" >&2
+        echo "   HEAD has $head_count paths; index currently tracks $tracked_count." >&2
+        echo "   Sample phantom paths:" >&2
+        printf '%s' "$phantom_missing_sample" | sed 's/^/     /' >&2
+        echo "" >&2
+        echo "   Attempting auto-recovery: git read-tree HEAD" >&2
+        git read-tree HEAD
+        new_count=$(git ls-files 2>/dev/null | wc -l)
+        echo "   ✅ Index rebuilt: $new_count tracked files" >&2
+        echo "" >&2
+        echo "   Please re-stage your files and retry:" >&2
+        echo "     git add <your-files>" >&2
+        echo "     git-safe-commit <your-files> -m 'your message'" >&2
+        echo "" >&2
+        exit 1
+    fi
+}
+
+hook_allows_untracked_dirty_guard_relaxation() {
+    local hook_path
+
+    hook_path="${1:-}"
+
+    # No pre-commit hook means no stash/restore cycle to worry about.
+    if [ -z "$hook_path" ]; then
+        return 0
+    fi
+
+    # The bundled auto-stage hook captures the staged set and always runs
+    # prek/pre-commit with `--files <staged>`, which avoids pre-commit's
+    # repo-wide stash/restore path. Symlinked and copied installs both work
+    # because grep reads the target file contents.
+    # shellcheck disable=SC2016  # intentional literal match, not expansion
+    if grep -Fq "Pre-commit hook with auto-staging and commit serialization." "$hook_path" 2>/dev/null && \
+       grep -Fq 'run --files "${ORIGINALLY_STAGED_FILES[@]}"' "$hook_path" 2>/dev/null; then
+        return 0
+    fi
+
+    return 1
+}
+
+check_clean_worktree_for_hooks() {
+    local unstaged_files untracked_files unstaged_count untracked_count
+    local sample_count mode block block_reason pre_commit_hook
+    local unstaged_reason untracked_reason
+    local allow_untracked allow_untracked_reason
+
+    pre_commit_hook="${1:-}"
+
+    unstaged_files="$(git diff --name-only --ignore-submodules -- 2>/dev/null)" || true
+    untracked_files="$(git ls-files --others --exclude-standard 2>/dev/null)" || true
+    unstaged_count=0
+    untracked_count=0
+    sample_count=0
+    mode=""
+    block=0
+    block_reason=""
+    unstaged_reason=""
+    untracked_reason=""
+    allow_untracked=0
+    allow_untracked_reason=""
+
+    if [ -n "$unstaged_files" ]; then
+        unstaged_count=$(printf '%s\n' "$unstaged_files" | grep -c . || true)
+    fi
+    if [ -n "$untracked_files" ]; then
+        untracked_count=$(printf '%s\n' "$untracked_files" | grep -c . || true)
+    fi
+
+    # The catastrophic case from issue #642 was prek's stash/restore cycle losing
+    # tracked-file entries from the index. Untracked files are not stashed by
+    # default and don't trigger that failure mode. Repos whose pre-commit hook
+    # invokes prek with `--files <staged>` (the standard agent-template hook)
+    # also skip prek's stash entirely, making this guard mostly belt-and-suspenders.
+    #
+    # Default: block on unstaged-modified tracked files. Untracked files alone are
+    # allowed only when there is no pre-commit hook or the hook is the known
+    # auto-stage wrapper that scopes checks to the staged set. Unknown hooks stay
+    # strict because git-safe-commit runs whatever hook the repo installed.
+    # Override: GIT_SAFE_COMMIT_DIRTY_GUARD=strict restores the old "any dirt blocks" behavior.
+    # Override: GIT_SAFE_COMMIT_DIRTY_GUARD=off skips the guard entirely.
+    mode="${GIT_SAFE_COMMIT_DIRTY_GUARD:-default}"
+
+    if [ "$mode" = "off" ]; then
+        return 0
+    fi
+
+    if [ "$mode" = "default" ]; then
+        if hook_allows_untracked_dirty_guard_relaxation "$pre_commit_hook"; then
+            allow_untracked=1
+            if [ -z "$pre_commit_hook" ]; then
+                allow_untracked_reason="no pre-commit hook detected"
+            else
+                allow_untracked_reason="hook scopes pre-commit to staged files"
+            fi
+        fi
+    fi
+
+    if [ "$unstaged_count" -gt 0 ]; then
+        unstaged_reason="${unstaged_count} unstaged tracked modification"
+        if [ "$unstaged_count" -ne 1 ]; then
+            unstaged_reason="${unstaged_reason}s"
+        fi
+    fi
+    if [ "$untracked_count" -gt 0 ] && [ "$allow_untracked" -ne 1 ]; then
+        untracked_reason="${untracked_count} untracked path"
+        if [ "$untracked_count" -ne 1 ]; then
+            untracked_reason="${untracked_reason}s"
+        fi
+        if [ "$mode" = "strict" ]; then
+            untracked_reason="${untracked_reason} (strict mode)"
+        fi
+    fi
+
+    if [ -n "$unstaged_reason" ] && [ -n "$untracked_reason" ]; then
+        block=1
+        block_reason="${unstaged_reason} and ${untracked_reason}"
+    elif [ -n "$unstaged_reason" ]; then
+        block=1
+        block_reason="$unstaged_reason"
+    elif [ -n "$untracked_reason" ]; then
+        block=1
+        block_reason="$untracked_reason"
+    fi
+
+    if [ "$block" -eq 1 ]; then
+        echo "🚫 Refusing to run pre-commit in a dirty worktree: ${block_reason}" >&2
+        echo "" >&2
+        echo "   In this shared repo, prek/pre-commit may stash+restore unrelated files" >&2
+        echo "   and corrupt the index (issue #642)." >&2
+        echo "" >&2
+        echo "   Clean the worktree first, or after manual verification rerun with:" >&2
+        echo "     git-safe-commit ... --no-verify" >&2
+        echo "" >&2
+        echo "   Sample dirty paths:" >&2
+        {
+            printf '%s\n' "$unstaged_files"
+            [ -n "$untracked_reason" ] && printf '%s\n' "$untracked_files"
+        } | grep -v '^$' | head -10 | sed 's/^/     /' >&2
+        sample_count=$unstaged_count
+        if [ -n "$untracked_reason" ]; then
+            sample_count=$((sample_count + untracked_count))
+        fi
+        if [ "$sample_count" -gt 10 ]; then
+            echo "     ... and $((sample_count - 10)) more" >&2
+        fi
+        echo "" >&2
+        exit 1
+    fi
+
+    # Default mode: untracked files alone are allowed. Warn so the operator knows
+    # the worktree isn't pristine but the commit can proceed.
+    if [ "$untracked_count" -gt 0 ] && [ "$allow_untracked" -eq 1 ]; then
+        echo "⚠️  worktree has ${untracked_count} untracked path(s); proceeding (${allow_untracked_reason}; set GIT_SAFE_COMMIT_DIRTY_GUARD=strict to block)" >&2
+    fi
+}
+
+stage_explicit_pathspecs() {
+    if [ "${#PATHSPECS[@]}" -eq 0 ]; then
+        return 0
+    fi
+
+    # The documented wrapper usage is `git-safe-commit file1 file2 -m ...`.
+    # Stage those explicit paths under the commit lock so callers don't need
+    # a separate `git add` step for untracked files, and so the pre-commit
+    # dirty worktree guard (when hooks run) sees the explicit set already
+    # staged.
+    #
+    # Runs unconditionally — including under --no-verify — because the
+    # convenience is mode-independent. Without unconditional staging,
+    # `git commit <path>` rejects untracked pathspecs with "did not match
+    # any file(s) known to git", which forces an awkward `git add` step
+    # exactly when the wrapper is supposed to remove it.
+    #
+    # Snapshot + add + install under git's index.lock so a concurrent raw
+    # `git add` cannot sneak a blob into the index between the pre-add
+    # snapshot and our add (that window used to record the sibling's blob
+    # as GSC_ABORT_AFTER and revert it on abort). The dump is the full
+    # `ls-files --stage` record per path, including unmerged 1/2/3, so
+    # abort restore can put a conflict back instead of collapsing it to
+    # a fabricated stage-0 resolution.
+    local -A entries_before=() entries_after=()
+    local path git_add_exit=0
+    local index_path lock_path tmp_index
+    local old_gif="${GIT_INDEX_FILE-}"
+
+    index_path="$(gsc_absolute_git_path index)"
+    lock_path="${index_path}.lock"
+    if ! gsc_acquire_index_lock "$lock_path"; then
+        echo "error: could not lock index to stage pathspecs" >&2
+        return 1
+    fi
+
+    tmp_index="$(mktemp "${index_path}.gsc.XXXXXX")" || {
+        echo "error: could not snapshot index to stage pathspecs" >&2
+        gsc_release_index_lock
+        return 1
+    }
+    # Fresh `git init` has no .git/index yet (git creates it lazily on the
+    # first add). `cp -p` would fail and block the initial commit; an empty
+    # mktemp file is also invalid ("index file smaller than expected").
+    # Write a real empty index so git add can proceed.
+    if [ -e "$index_path" ]; then
+        if ! cp -p "$index_path" "$tmp_index"; then
+            echo "error: could not snapshot index to stage pathspecs" >&2
+            rm -f "$tmp_index"
+            gsc_release_index_lock
+            return 1
+        fi
+    else
+        rm -f "$tmp_index"
+        if ! GIT_INDEX_FILE="$tmp_index" git read-tree --empty; then
+            echo "error: could not create empty index to stage pathspecs" >&2
+            gsc_release_index_lock
+            return 1
+        fi
+    fi
+
+    GIT_INDEX_FILE="$tmp_index"
+    export GIT_INDEX_FILE
+    gsc_load_ls_files_map entries_before
+    # Snapshot AFTER even when git add returns non-zero: a mixed pathspec
+    # list stages the valid paths and then fails (typo, ignored file).
+    # Returning here would leave those paths in GSC_ABORT_PATHS's blind
+    # spot — staged-but-uncommitted, the sweep-class bug this trap exists
+    # to close.
+    git add -- "${PATHSPECS[@]}" || git_add_exit=$?
+    gsc_load_ls_files_map entries_after
+    if [ -n "$old_gif" ]; then
+        GIT_INDEX_FILE="$old_gif"
+        export GIT_INDEX_FILE
+    else
+        unset GIT_INDEX_FILE
+    fi
+
+    # Paths with embedded newlines are excluded from abort tracking: the
+    # per-path dump and the `update-index --index-info` restore feed are both
+    # newline-delimited, so such a record would split and corrupt the restore.
+    # Newline paths are documented out of scope script-wide; excluding them
+    # here means they keep whatever state exists at abort (pre-trap behavior)
+    # instead of being restored wrongly.
+    for path in "${!entries_after[@]}"; do
+        case "$path" in *$'\n'*) continue ;; esac
+        if [ "${entries_before[$path]:-}" != "${entries_after[$path]}" ]; then
+            GSC_ABORT_PATHS+=("$path")
+            GSC_ABORT_BEFORE["$path"]="${entries_before[$path]:-}"
+            GSC_ABORT_AFTER["$path"]="${entries_after[$path]}"
+        fi
+    done
+    # A path whose entry our add REMOVED (file deleted on disk → staged
+    # deletion) also gets its pre-run entry restored on abort.
+    for path in "${!entries_before[@]}"; do
+        case "$path" in *$'\n'*) continue ;; esac
+        if [ -z "${entries_after[$path]:-}" ]; then
+            GSC_ABORT_PATHS+=("$path")
+            GSC_ABORT_BEFORE["$path"]="${entries_before[$path]}"
+            GSC_ABORT_AFTER["$path"]=""
+        fi
+    done
+
+    # Git's install protocol: write the new index into index.lock, then
+    # rename over index. Concurrent writers fail at create(index.lock).
+    if mv "$tmp_index" "$lock_path" && mv "$lock_path" "$index_path"; then
+        GSC_HELD_INDEX_LOCK=""
+        tmp_index=""
+    else
+        echo "error: failed to install staged index" >&2
+        gsc_release_index_lock
+        [ -n "$tmp_index" ] && rm -f "$tmp_index"
+        return 1
+    fi
+    return "$git_add_exit"
+}
+
+resolve_pre_commit_hook() {
+    local hooks_dir hook_path
+
+    # core.hooksPath takes precedence over the default .git/hooks directory
+    hooks_dir="$(git config core.hooksPath 2>/dev/null)"
+    if [ -z "$hooks_dir" ]; then
+        hooks_dir="$(git rev-parse --git-path hooks 2>/dev/null)" || return 1
+    fi
+    hook_path="$hooks_dir/pre-commit"
+
+    if [ -x "$hook_path" ]; then
+        printf '%s\n' "$hook_path"
+        return 0
+    fi
+
+    return 1
+}
+
+LOCK_TIMEOUT=${GIT_SAFE_COMMIT_LOCK_TIMEOUT:-60}
+case "$LOCK_TIMEOUT" in
+    *[!0-9]*)
+        echo "error: GIT_SAFE_COMMIT_LOCK_TIMEOUT must be a positive integer number of seconds" >&2
+        exit 1
+        ;;
+    *[1-9]*)
+        ;;
+    *)
+        echo "error: GIT_SAFE_COMMIT_LOCK_TIMEOUT must be a positive integer number of seconds" >&2
+        exit 1
+        ;;
+esac
+
+exec 9>"$LOCKFILE"
+if ! flock --timeout "$LOCK_TIMEOUT" 9; then
+    echo "error: timed out waiting for commit lock" >&2
+    exit 1
+fi
+
+check_index_corruption
+
+stage_explicit_pathspecs || exit $?
+
+MANUAL_PRECOMMIT_RAN=0
+if [ "$NO_VERIFY" -ne 1 ]; then
+    PRE_COMMIT_HOOK=""
+    ALLOW_UNTRACKED_FOR_HOOK=0
+    if PRE_COMMIT_HOOK="$(resolve_pre_commit_hook)"; then
+        DIRTY_GUARD_MODE="${GIT_SAFE_COMMIT_DIRTY_GUARD:-default}"
+        if [ "$DIRTY_GUARD_MODE" = "off" ] || \
+           { [ "$DIRTY_GUARD_MODE" = "default" ] && \
+             hook_allows_untracked_dirty_guard_relaxation "$PRE_COMMIT_HOOK"; }; then
+            ALLOW_UNTRACKED_FOR_HOOK=1
+        fi
+        :
+    else
+        PRE_COMMIT_HOOK=""
+    fi
+    check_clean_worktree_for_hooks "$PRE_COMMIT_HOOK"
+    if [ -n "$PRE_COMMIT_HOOK" ]; then
+        # Run the tracked hook directly under the wrapper lock, then hand off to
+        # git commit --no-verify. This avoids the hook-time missing-object bug
+        # while preserving the same pre-commit behavior and auto-staging logic.
+        env \
+            GIT_SAFE_COMMIT_LOCK_HELD=1 \
+            GIT_SAFE_COMMIT_EXPECT_CLEAN=1 \
+            GIT_SAFE_COMMIT_MANUAL_PRECOMMIT=1 \
+            GIT_SAFE_COMMIT_ALLOW_UNTRACKED="$ALLOW_UNTRACKED_FOR_HOOK" \
+            "$PRE_COMMIT_HOOK"
+        PRE_COMMIT_EXIT=$?
+        if [ "$PRE_COMMIT_EXIT" -ne 0 ]; then
+            exit "$PRE_COMMIT_EXIT"
+        fi
+        MANUAL_PRECOMMIT_RAN=1
+    fi
+fi
+
+if [ "$NO_VERIFY" -ne 1 ] && [ "$MANUAL_PRECOMMIT_RAN" -eq 1 ]; then
+    # pre-commit already ran directly under the lock; use --no-verify so git
+    # does not redispatch the pre-commit hook. prepare-commit-msg still runs
+    # (--no-verify only skips pre-commit and commit-msg, not prepare-commit-msg).
+    env GIT_SAFE_COMMIT_LOCK_HELD=1 git commit --no-verify "${FORWARD_ARGS[@]}"
+else
+    env GIT_SAFE_COMMIT_LOCK_HELD=1 git commit "${FORWARD_ARGS[@]}"
+fi
+COMMIT_EXIT=$?
+
+if [ "$COMMIT_EXIT" -ne 0 ]; then
+    exit "$COMMIT_EXIT"
+fi
+
+# The staged paths are now part of a commit — the abort trap must not touch
+# them. (The catastrophic-deletion auto-revert below deliberately re-stages
+# via `git reset --soft` and tells the operator so; that state is kept too.)
+GSC_COMMIT_DONE=1
+
+# Post-commit safety net: detect catastrophic index corruption (issue #642).
+# Even if pre-commit hooks pass (phantom filter suppresses warnings), verify
+# the committed diff doesn't contain mass file deletions. If it does,
+# auto-revert before the damage can be pushed.
+DELETED_IN_COMMIT=$(git diff-tree --no-commit-id -r --diff-filter=D HEAD 2>/dev/null | wc -l)
+DELETION_THRESHOLD=100
+
+if [ "$DELETED_IN_COMMIT" -gt "$DELETION_THRESHOLD" ]; then
+    COMMIT_SHA=$(git rev-parse --short HEAD)
+    echo ""
+    echo "🚨 CATASTROPHIC COMMIT DETECTED (issue #642 safeguard)"
+    echo "   Commit $COMMIT_SHA deleted $DELETED_IN_COMMIT files"
+    echo ""
+    echo "   Auto-reverting with: git reset --soft HEAD~1"
+    git reset --soft HEAD~1
+    echo "   ✅ Commit reverted. Your changes are still staged."
+    echo ""
+    echo "   To commit safely:"
+    echo "     1. Run: git diff --cached --stat  (verify only intended files staged)"
+    echo "     2. Run: git commit --no-verify -m 'your message'"
+    echo ""
+    exit 1
+fi
+
+exit 0

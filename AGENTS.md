@@ -1,0 +1,231 @@
+# Agent Instructions
+
+This file is automatically loaded by Claude Code and other agent runtimes.
+
+## Identity
+
+Read the files listed in `gptme.toml` under `[prompt] files` at session start.
+These define who you are, how you work, and what you know. Key files:
+
+- **ABOUT.md** — Personality, goals, values
+- **ARCHITECTURE.md** — System design, workspace structure
+- **TASKS.md** — Task management system
+
+**Important**: Get the repo root dynamically — never hardcode paths:
+
+```bash
+REPO_ROOT=$(git rev-parse --show-toplevel)
+```
+
+## Core Rules
+
+### File Operations — Use Absolute Paths
+
+```bash
+# Correct — derive repo root, then use absolute path
+REPO_ROOT=$(git rev-parse --show-toplevel)
+echo "entry" >> "$REPO_ROOT/journal/2025-10-14/topic.md"
+
+# Wrong — breaks when cwd changes
+echo "entry" >> journal/2025-10-14/topic.md
+```
+
+### Git Workflow
+
+- **Default branch is `master`** — not `main`. Never assume `main`.
+- **Commit messages**: Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`)
+- **Workspace repo**: Commit directly to master for docs/journal/tasks
+- **External repos**: Use branches + PRs from worktrees at `/tmp/worktrees/<repo>/<branch>/`
+- **Always commit with explicit file paths** — never `git add .` or `git commit -a`.
+  Concurrent sessions share one index; an implicit commit can pick up another
+  session's staged files.
+- **Shared-worktree commits**: Multiple concurrent sessions on one worktree will
+  race prek's stash/restore. Use `git-safe-commit` (hyphenated; flock wrapper in
+  `scripts/`) with explicit paths:
+  ```bash
+  git-safe-commit file1.py file2.py -m "feat: description"
+  ```
+  Requires `scripts/` in PATH (e.g. `export PATH="$PWD/scripts:$PATH"` in `.envrc`).
+- **PR merge strategy**: Always `--squash` when merging
+- **No AI attribution**: Never add `Co-Authored-By: Claude` or "Generated with Claude Code" to commits/PRs
+
+### Safety Rules
+
+- **Never force-push to master/main**
+- **Never skip hooks** with `--no-verify` unless explicitly asked
+- **Never commit secrets** — check with `git diff --staged` before committing
+- **Verify CI passes** after pushing: `gh pr checks <num> --watch`
+
+### Journal
+
+- **Append-only**: Never modify historical entries
+- **Subdirectory format**: `journal/YYYY-MM-DD/HHMMSS-topic.md`
+- **Absolute paths**: Always use full paths when creating entries
+
+### Tasks
+
+- Managed via files in `tasks/` with YAML frontmatter
+- CLI: `gptodo status|ready|show|edit`
+- Select work with `gptodo ready --skip-claimed` (not `gptodo status` — status includes blocked/waiting tasks)
+- Assess complexity by scope, not time
+- Mark done when core functionality works
+
+### Pre-Commit Hooks
+
+Run automatically on commit. Don't bypass with `--no-verify` unless explicitly asked.
+
+> **Important**: Always ensure gptme-contrib submodule is up to date before running hooks:
+> ```bash
+> git submodule update --init --recursive
+> ```
+> This prevents false positives in link checking for files referenced from `gptme-contrib/lessons/`.
+
+```bash
+# Fix formatting
+make format
+
+# Run all hooks manually (prek is faster if available, falls back to pre-commit)
+if command -v prek &>/dev/null; then
+    prek run --all-files
+else
+    pre-commit run --all-files
+fi
+```
+
+### Testing
+
+```bash
+make test        # All tests
+make typecheck   # Type checking
+```
+
+## Multi-Runtime Notes
+
+### gptme
+- Identity files auto-loaded via `gptme.toml`
+- `context_cmd` runs `scripts/context.sh` for dynamic context
+- Lessons matched by keywords automatically
+
+### Claude Code
+- Claude Code reads this file natively (2.1.277+) in a project with no
+  `CLAUDE.md`, so no symlink or duplicate copy is needed. Requires a git
+  project root, and is unavailable on Bedrock, Vertex and Foundry.
+- Autonomous runs use `scripts/build-system-prompt.sh` to load the files listed
+  in `gptme.toml`; interactive runs should read the bootstrap files manually
+- Run `scripts/context.sh` at session start for dynamic context (tasks, GitHub, git status)
+- The generic template does not install automatic lesson-matching hooks
+
+### Codex and Other Runtimes
+- Codex discovers this `AGENTS.md`, but the template ships no Codex autonomous launcher
+- Manually read the bootstrap files and run `scripts/context.sh` at session start
+- No automatic lesson injection is provided; check `lessons/` when relevant
+- Grok Build and Pi are not wired by this template; using them reliably requires
+  an adapter that injects the same identity, context, and task-lifecycle contract
+
+### Nested Claude Code Subprocesses
+
+Claude Code sets `CLAUDECODE` env var, which blocks nested `claude -p` invocations
+(protection against recursion). If your agent needs to spawn a Claude subprocess
+(e.g. from a script or systemd service), unset it first:
+
+```python
+import os, subprocess
+env = os.environ.copy()
+env.pop("CLAUDECODE", None)
+env.pop("CLAUDE_CODE_ENTRYPOINT", None)
+subprocess.run(["claude", "-p", prompt], env=env)
+```
+
+```bash
+# Shell equivalent
+env -u CLAUDECODE -u CLAUDE_CODE_ENTRYPOINT claude -p "prompt"
+```
+
+Also: when running `claude -p` inside tmux, always add `</dev/null` to prevent
+the process from receiving SIGSTOP (`T` state) when it tries to read stdin:
+
+```bash
+claude -p "prompt" </dev/null
+```
+
+### Working on External Repos
+
+For any code change outside the workspace repo, use worktrees:
+
+```bash
+# New feature/fix in an external repo
+cd /path/to/external-repo
+BRANCH="fix-my-issue"
+git worktree add "/tmp/worktrees/$(basename $PWD)/$BRANCH" -b "$BRANCH" origin/master
+cd "/tmp/worktrees/$(basename $PWD)/$BRANCH"
+git branch --unset-upstream   # prevent accidental push to master
+# ... make changes, commit ...
+git push -u origin "$BRANCH"
+gh pr create
+```
+
+### Cross-Repo GitHub References
+
+When writing GitHub issue/PR comments that reference issues in a **different** repo,
+always use the full `org/repo#N` format — GitHub auto-links bare `#N` to the
+*current* repo, making cross-repo references silently wrong:
+
+```markdown
+<!-- Wrong: links to current repo's issue #42 -->
+See #42 for context.
+
+<!-- Correct: links to the intended repo -->
+See gptme/gptme#42 for context.
+See https://github.com/gptme/gptme/issues/42 for context.
+```
+
+## Troubleshooting
+
+### Pre-Commit Hooks Failing
+
+```bash
+# Update submodule first (fixes false positive link errors)
+git submodule update --init --recursive
+
+# Fix formatting issues
+make format
+
+# Run all hooks to see what's failing
+make check
+
+# If mypy fails, check packages are installed
+uv sync --all-packages
+```
+
+### Import Errors
+
+```bash
+# Reinstall all workspace packages
+uv sync --all-packages
+
+# Verify package is installed
+uv pip list | grep <package-name>
+```
+
+### Context Script Slow or Failing
+
+```bash
+# Test context generation
+time ./scripts/context.sh > /dev/null
+
+# If failing, check dependencies
+which gptodo gh git
+```
+
+### gptme-contrib Submodule Issues
+
+```bash
+# Submodule not initialized
+git submodule update --init --recursive
+
+# Submodule out of date
+git submodule update --remote gptme-contrib
+
+# "core.bare" error in submodule
+git config --file .git/modules/gptme-contrib/config --unset core.bare
+```

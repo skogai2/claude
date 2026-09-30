@@ -1,0 +1,223 @@
+#!/usr/bin/env bash
+# install-deps.sh - Check and install dependencies for claude
+# Run this BEFORE forking to ensure all prerequisites are installed.
+#
+# Usage:
+#   ./scripts/install-deps.sh          # Check all dependencies
+#   ./scripts/install-deps.sh --install # Auto-install where possible
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+INSTALL_MODE=false
+if [[ "$1" == "--install" ]]; then
+    INSTALL_MODE=true
+fi
+
+echo -e "${BLUE}=== claude Dependency Check ===${NC}"
+echo ""
+
+# Track missing deps
+MISSING=()
+
+# Function to check if command exists
+check_cmd() {
+    local cmd=$1
+    local name=${2:-$1}
+    local install_hint=$3
+
+    if command -v "$cmd" &> /dev/null; then
+        local version
+        version=$("$cmd" --version 2>/dev/null | head -1 || echo "installed")
+        echo -e "${GREEN}✓${NC} $name: $version"
+        return 0
+    else
+        echo -e "${RED}✗${NC} $name: not found"
+        if [[ -n "$install_hint" ]]; then
+            echo -e "  ${YELLOW}→ $install_hint${NC}"
+        fi
+        MISSING+=("$name")
+        return 1
+    fi
+}
+
+# Detect OS for install hints
+detect_os() {
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        echo "macos"
+    elif [[ -f /etc/debian_version ]]; then
+        echo "debian"
+    elif [[ -f /etc/fedora-release ]]; then
+        echo "fedora"
+    elif [[ -f /etc/arch-release ]]; then
+        echo "arch"
+    else
+        echo "unknown"
+    fi
+}
+
+OS=$(detect_os)
+
+echo -e "${BLUE}Detected OS:${NC} $OS"
+echo ""
+echo -e "${BLUE}Required Dependencies:${NC}"
+echo ""
+
+# Core tools
+check_cmd "git" "git" "Install via package manager"
+check_cmd "python3" "python3" "Install Python 3.10+"
+
+# Python package managers
+if ! check_cmd "pipx" "pipx" "python3 -m pip install --user pipx"; then
+    if $INSTALL_MODE; then
+        echo -e "${YELLOW}Installing pipx...${NC}"
+        python3 -m pip install --user pipx
+        python3 -m pipx ensurepath
+    fi
+fi
+
+if ! check_cmd "uv" "uv" "curl -LsSf https://astral.sh/uv/install.sh | sh"; then
+    if $INSTALL_MODE; then
+        echo -e "${YELLOW}Installing uv...${NC}"
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+    fi
+fi
+
+# gptme
+if ! check_cmd "gptme" "gptme" "pipx install 'gptme[server,browser,telemetry]'"; then
+    if $INSTALL_MODE; then
+        echo -e "${YELLOW}Installing gptme...${NC}"
+        # shellcheck disable=SC2102  # brackets are pip extras, not a range
+        pipx install gptme[server,browser,telemetry]
+    fi
+fi
+
+# gptme-sessions: session-record writer used by the Claude Code post-session
+# Stop hook. Without it a forked agent runs blind — no noop rate, no outcome
+# tracking, no bandit input. Installed from the vendored contrib package (not
+# published to PyPI). The hook degrades gracefully if it's missing.
+if ! check_cmd "gptme-sessions" "gptme-sessions" "uv tool install ./gptme-contrib/packages/gptme-sessions"; then
+    if $INSTALL_MODE && command -v uv &> /dev/null; then
+        SESSIONS_PKG="$(dirname "$0")/../gptme-contrib/packages/gptme-sessions"
+        if [[ -d "$SESSIONS_PKG" ]]; then
+            echo -e "${YELLOW}Installing gptme-sessions from vendored contrib package...${NC}"
+            uv tool install "$SESSIONS_PKG"
+        else
+            echo -e "${YELLOW}  → gptme-contrib submodule not checked out yet; install after forking${NC}"
+        fi
+    fi
+fi
+
+# Optional but recommended
+echo ""
+echo -e "${BLUE}Recommended Dependencies:${NC}"
+echo ""
+
+case $OS in
+    macos)
+        check_cmd "tree" "tree" "brew install tree"
+        check_cmd "jq" "jq" "brew install jq"
+        check_cmd "gh" "GitHub CLI" "brew install gh"
+        check_cmd "shellcheck" "shellcheck" "brew install shellcheck"
+        ;;
+    debian)
+        check_cmd "tree" "tree" "sudo apt install tree"
+        check_cmd "jq" "jq" "sudo apt install jq"
+        check_cmd "gh" "GitHub CLI" "See https://github.com/cli/cli/blob/trunk/docs/install_linux.md"
+        check_cmd "shellcheck" "shellcheck" "sudo apt install shellcheck"
+        ;;
+    fedora)
+        check_cmd "tree" "tree" "sudo dnf install tree"
+        check_cmd "jq" "jq" "sudo dnf install jq"
+        check_cmd "gh" "GitHub CLI" "sudo dnf install gh"
+        check_cmd "shellcheck" "shellcheck" "sudo dnf install shellcheck"
+        ;;
+    arch)
+        check_cmd "tree" "tree" "sudo pacman -S tree"
+        check_cmd "jq" "jq" "sudo pacman -S jq"
+        check_cmd "gh" "GitHub CLI" "sudo pacman -S github-cli"
+        check_cmd "shellcheck" "shellcheck" "sudo pacman -S shellcheck"
+        ;;
+    *)
+        check_cmd "tree" "tree" "Install via package manager"
+        check_cmd "jq" "jq" "Install via package manager"
+        check_cmd "gh" "GitHub CLI" "See https://cli.github.com/"
+        check_cmd "shellcheck" "shellcheck" "Install via package manager"
+        ;;
+esac
+
+# prek is a faster Rust-based drop-in for pre-commit (preferred)
+# Either prek or pre-commit satisfies this requirement; only flag MISSING if neither is available
+if command -v prek &> /dev/null; then
+    version=$(prek --version 2>/dev/null | head -1 || echo "installed")
+    echo -e "${GREEN}✓${NC} prek: $version"
+elif command -v pre-commit &> /dev/null; then
+    version=$(pre-commit --version 2>/dev/null | head -1 || echo "installed")
+    echo -e "${GREEN}✓${NC} pre-commit: $version (prek preferred: uv tool install prek)"
+else
+    echo -e "${RED}✗${NC} prek/pre-commit: not found"
+    echo -e "  ${YELLOW}→ uv tool install prek${NC}"
+    MISSING+=("prek/pre-commit")
+    if $INSTALL_MODE; then
+        echo -e "${YELLOW}Installing prek (fast pre-commit runner)...${NC}"
+        uv tool install prek
+    fi
+fi
+
+# Capability tiers (what your agent will actually have at runtime)
+#
+# `check_cmd` above tells you which *binaries* are installed. The shared core
+# (see gptme-contrib/scripts/principal_notify.py and the shared-core convergence
+# arc) is written in capability *tiers* and degrades gracefully across them:
+#
+#   Tier 0  universal    filesystem + python3        — always present
+#   Tier 1  notify       out-of-band "notify my principal" (gh/pushover/telegram)
+#   Tier 2  service mgr   systemd / launchd           — scheduled autonomous runs
+#   Tier 3  multi-agent   ssh to sibling agents       — strictly optional
+#
+# The probe answers the runtime question a fresh fork needs: "which tiers does
+# *my* environment provide, and what do I lose without each?" — most sharply, it
+# flags the Tier-1 identity anti-pattern where the authenticated `gh` login *is*
+# the principal, so an out-of-band alarm would arrive authored by the person it
+# is meant to alert. It is stdlib-only and never fails this check.
+echo ""
+echo -e "${BLUE}Capability Tiers:${NC}"
+echo ""
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROBE="$SCRIPT_DIR/../gptme-contrib/scripts/capability_probe.py"
+if [[ -f "$PROBE" ]] && command -v python3 &> /dev/null; then
+    # Advisory only: never let the probe's exit code abort the dependency check.
+    python3 "$PROBE" || true
+else
+    echo -e "${YELLOW}→${NC} Capability probe not available yet"
+    echo "  (initialize the shared-core submodule to see your tier report:"
+    echo "   git submodule update --init gptme-contrib, then re-run this script)"
+fi
+
+# Summary
+echo ""
+echo -e "${BLUE}==============================${NC}"
+
+if [[ ${#MISSING[@]} -eq 0 ]]; then
+    echo -e "${GREEN}All dependencies installed!${NC}"
+    echo ""
+    echo "You're ready to fork. Run:"
+    echo "  ./fork.sh <path> [<agent-name>]"
+    exit 0
+else
+    echo -e "${YELLOW}Missing ${#MISSING[@]} dependencies:${NC} ${MISSING[*]}"
+    echo ""
+    if $INSTALL_MODE; then
+        echo "Some dependencies were auto-installed. Please restart your shell and re-run this script."
+    else
+        echo "Run with --install to auto-install where possible:"
+        echo "  ./scripts/install-deps.sh --install"
+    fi
+    exit 1
+fi

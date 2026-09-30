@@ -1,0 +1,273 @@
+# Scripts Directory
+
+This directory contains scripts for agent workspace automation and operations.
+
+## Structure
+
+```txt
+scripts/
+├── install-deps.sh        # Check and install dependencies
+├── context.sh              # Main context generation orchestrator
+├── context-journal.sh      # Recent journal entries context
+├── context-workspace.sh    # Workspace files overview
+├── gptodo                  # Task management CLI (install via: uv tool install git+https://github.com/gptme/gptme-contrib#subdirectory=packages/gptodo)
+├── search.sh              # Multi-source search across workspace
+├── compare.sh             # Compare files or directories
+├── fork.py                # Agent forking automation
+├── runs/                  # Autonomous run infrastructure
+│   └── autonomous/
+│       ├── autonomous-run.sh      # Main autonomous run script
+│       └── autonomous-prompt.txt  # Prompt template for runs
+├── precommit/             # Pre-commit hook implementations
+│   └── [various validation scripts]
+└── README.md              # This file
+```
+
+## Context Generation System
+
+The context generation system provides dynamic context to gptme sessions by gathering information from various workspace sources.
+
+### Main Script: context.sh
+
+**Purpose**: Orchestrate context generation from multiple providers.
+
+**Usage**:
+```bash
+# Generate full context
+./scripts/context.sh
+
+# Use in gptme.toml
+context_cmd = "/path/to/scripts/context.sh"
+```
+
+**What it does**:
+1. Generates context summary header with timestamp
+2. Calls component scripts (journal, workspace)
+3. Shows task status via gptodo
+4. Displays git status
+
+**Output format**:
+```txt
+# Context Summary
+Generated on: [timestamp]
+
+# Journal Context
+[Recent journal entries]
+
+# Tasks
+[Task status overview]
+
+# Workspace Structure
+[File tree and overview]
+
+# Git
+[Git status]
+```
+
+### Component Scripts
+
+#### context-journal.sh
+
+**Purpose**: Extract recent journal entries for session continuity.
+
+**What it includes**:
+- Today's journal entries
+- Recent session summaries
+- Links to older sessions
+
+**Customization**: Edit to control:
+- Number of recent entries
+- Date range to include
+- Summary format
+
+#### context-workspace.sh
+
+**Purpose**: Provide overview of workspace structure and files.
+
+**What it includes**:
+- Directory tree
+- Key file listings
+- Project structure
+
+**Customization**: Edit to control:
+- Which directories to show
+- Tree depth
+- File patterns to include/exclude
+
+### Customizing Context Generation
+
+**For your agent**, customize:
+
+1. **context-journal.sh**:
+   - Adjust how many recent journal entries to include
+   - Change summary format
+   - Add agent-specific journal sections
+
+2. **context-workspace.sh**:
+   - Include agent-specific directories
+   - Exclude irrelevant paths
+   - Add custom file listings
+
+3. **context.sh**:
+   - Add new component scripts
+   - Reorder sections
+   - Add agent-specific providers
+
+**Example customization**:
+```bash
+# In context.sh, add custom provider:
+$SCRIPT_DIR/context-notifications.sh  # Your custom script
+```
+
+## Task Management: gptodo (Optional)
+
+**Purpose**: CLI for task management (status, ready, list, edit operations).
+
+**Installation**:
+```bash
+uv tool install git+https://github.com/gptme/gptme-contrib#subdirectory=packages/gptodo
+```
+
+**Common commands**:
+```bash
+# View task status (overview — includes blocked/waiting tasks)
+gptodo status
+
+# Compact view (for context)
+gptodo status --compact
+
+# Select unblocked work (use this instead of scanning status)
+gptodo ready
+gptodo ready --skip-claimed --jsonl
+
+# List all tasks
+gptodo list
+
+# Show specific task
+gptodo show <task-id>
+
+# Edit task metadata
+gptodo edit <task-id> --set state active
+```
+
+## Autonomous Run Infrastructure
+
+Located in `scripts/runs/autonomous/`:
+
+**autonomous-run.sh**:
+- Main script for autonomous operation
+- Implements CASCADE workflow (loose ends → task selection → execution)
+- Handles git operations, session logging, queue updates
+- See scripts/runs/autonomous/README.md for details
+
+**autonomous-prompt.txt**:
+- Template prompt for autonomous sessions
+- Loaded by autonomous-run.sh
+- Customizable per agent
+
+## Journal System
+
+The journal system supports two formats:
+- **Legacy (flat)**: `journal/2025-12-24-topic.md`
+- **New (subdirectories)**: `journal/2025-12-24/topic.md`
+
+### migrate-journals.py
+
+**Purpose**: Migrate journal files from flat to subdirectory structure.
+
+**Usage**:
+```bash
+# Dry run (shows what would happen)
+./scripts/migrate-journals.py
+
+# Actually perform migration
+./scripts/migrate-journals.py --execute
+```
+
+**Benefits of subdirectory format**:
+- Reduced directory clutter (especially for long-running agents)
+- Better filesystem performance
+- Easier date-based navigation
+- Prepared for parallel agent operations
+
+**Note**: Migration is optional. The system works with both formats.
+
+## Search and Utilities
+
+**search.sh**:
+- Multi-source search across tasks, knowledge, lessons
+- Usage: `./scripts/search.sh "query"`
+
+**compare.sh**:
+- Compare template harness files against an existing agent workspace
+- Usage: `./scripts/compare.sh [--markdown] <path_to_agent>`
+- Exit codes: `0` (no diff), `1` (differences found), `2` (usage/path error)
+
+**fork.py**:
+- Automate agent forking from template
+- Creates new agent workspace with proper initialization
+- See fork.sh in repo root for usage
+
+## Pre-commit Hooks
+
+Located in `gptme-contrib/scripts/precommit/` (via submodule):
+
+Validation scripts run by pre-commit framework:
+- Task frontmatter validation
+- Lesson format checking
+- Markdown link verification
+- YAML syntax validation
+
+Configure in `.pre-commit-config.yaml` at repo root.
+
+## Best Practices
+
+**Context Generation**:
+- Keep scripts fast (<5 seconds total)
+- Filter output to relevant information
+- Use compact formats for token efficiency
+
+**Customization**:
+- Copy and modify component scripts
+- Document customizations in comments
+
+**Integration**:
+- Configure context_cmd in gptme.toml
+- Test context generation manually first
+- Monitor token usage with large contexts
+
+## Workspace Readiness Check
+
+Use the built-in `claude doctor` command (available in gptme ≥ v0.32) to validate workspace configuration:
+
+```bash
+# Check workspace readiness
+claude doctor
+
+# Auto-fix simple issues (missing dirs, hooks, submodules)
+claude doctor --fix
+```
+
+**What it checks**:
+- Core identity files (ABOUT.md, gptme.toml, ARCHITECTURE.md, AGENTS.md)
+- gptme.toml configuration (agent name, prompt section, context_cmd)
+- Directory structure (tasks/, journal/, knowledge/, lessons/)
+- Git configuration (repo, remote, pre-commit hooks)
+- Required tools (gptme, git, python3, uv, gh, gptodo)
+- Python environment (pyproject.toml, .venv, uv.lock)
+- Submodule initialization
+- Context generation script
+- Task system setup
+
+**When to use**:
+- After forking a new agent from the template
+- After setting up a new agent workspace
+- To debug "why isn't my agent working" issues
+- As a quick health check during development
+
+## Related
+
+- gptme.toml - Context command configuration
+- state/README.md - Work queue system documentation
+- scripts/runs/autonomous/README.md - Autonomous run details
+- TOOLS.md - Tool usage documentation

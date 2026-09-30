@@ -1,0 +1,52 @@
+files = ["README.md", "ARCHITECTURE.md", "ABOUT.md", "SOUL.md", "TASKS.md", "TOOLS.md", "lessons/README.md", "projects/README.md", "gptme.toml"]
+exclude = []
+context_cmd = "scripts/context.sh"
+
+[hooks]
+scripts = []
+
+[rag]
+enabled = false
+post_process = true
+workspace_only = true
+paths = []
+
+[agent]
+name = "claude"
+
+[lessons]
+dirs = ["lessons", "skills", "gptme-contrib/lessons", "gptme-contrib/skills"]
+
+[context]
+enabled = false
+
+[context.selector]
+enabled = true
+strategy = "hybrid"
+llm_model = "openai/gpt-4o-mini"
+max_candidates = 20
+max_selected = 5
+cost_limit_daily = 0.3
+lesson_use_yaml_metadata = true
+file_mention_weight = 2.0
+file_recency_weight = 1.0
+
+[context.selector.lesson_priority_boost]
+high = 2.0
+critical = 3.0
+
+[plugins]
+paths = []
+enabled = []
+
+[architect]
+enabled = false
+auto_accept = false
+
+[subagent]
+
+[settings]
+
+[plugin]
+
+[env]

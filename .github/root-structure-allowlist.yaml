@@ -1,0 +1,47 @@
+# Root structure allowlist for claude
+# This file lists all top-level entries (files and directories) that are allowed in the repo root.
+# Any other entries will be rejected by the pre-commit validator.
+#
+# Rationale: Agent templates should be lean. Directories are scoped for identity files,
+# configuration, tooling, and the submodule. Use existing patterns — don't add new top-level dirs.
+
+allowed_entries:
+  # Configuration files
+  - .gitignore
+  - .gitmodules
+  - .pre-commit-config.yaml
+  - gptme.toml
+
+  # Identity and documentation (auto-included via gptme.toml)
+  - ABOUT.md
+  - AGENTS.md
+  - ARCHITECTURE.md
+  - SOUL.md
+  - TASKS.md
+  - TOOLS.md
+  - WORKFLOW.md
+  - CLAUDE.md
+
+  # Build and maintenance
+  - Makefile
+  - README.md
+
+  # Core directories (do not add more top-level dirs without design discussion)
+  - .claude
+  - .github
+  - .skogai
+  - dotfiles
+  - gptme-contrib
+  - journal
+  - knowledge
+  - lessons
+  - people
+  - projects
+  - scripts
+  - skills
+  - state
+  - tasks
+  - tests
+
+  # Gitignored scratch space (never committed, but present on disk)
+  - tmp

@@ -1,0 +1,75 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-symlinks
+      - id: destroyed-symlinks
+      - id: check-added-large-files
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
+        # Exclude gptme-contrib submodule (has its own checks) and dotfiles symlinks
+        exclude: ^gptme-contrib/|^dotfiles/
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.12.0
+    hooks:
+      - id: mypy
+        additional_dependencies: [types-tabulate, types-docutils, types-PyYAML]
+        args: [--ignore-missing-imports, --check-untyped-defs]
+  - repo: https://github.com/gptme/gptme-contrib
+    rev: 13d63e63b35705bc16646ed4b0964dcfa176bc43  # gptme/gptme-contrib#1520
+    hooks:
+      - id: validate-root-structure
+        args: [--config, .github/root-structure-allowlist.yaml]
+  - repo: local
+    hooks:
+      - id: check-names
+        name: Check for agent-instance names
+        description: Verifies that we are not accidentally using names of agents in the template, or vice versa
+        entry: ./gptme-contrib/scripts/precommit/check-names.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: check-markdown-links
+        name: Check markdown links
+        description: Verifies all relative links in markdown files resolve correctly
+        entry: python3 ./gptme-contrib/scripts/precommit/check_markdown_links.py
+        language: system
+        types: [markdown]
+        pass_filenames: true
+        # Exclude example files which intentionally have broken links
+        exclude: ^projects/.*/examples/.*$
+      - id: validate-markdown-codeblock-syntax
+        name: Validate markdown codeblock syntax
+        description: Ensures markdown codeblocks have language tags to prevent parsing cut-offs
+        entry: python3 ./gptme-contrib/scripts/precommit/validators/validate_markdown_codeblock_syntax.py
+        language: system
+        types: [markdown]
+        pass_filenames: true
+        # Exclude lesson files - they need to show anti-patterns
+        exclude: ^lessons/.*$
+      - id: validate-task-frontmatter
+        name: Validate task frontmatter
+        description: Validates YAML frontmatter in task files
+        entry: ./gptme-contrib/scripts/precommit/validate_task_frontmatter.py
+        language: system
+        types: [markdown]
+        files: ^tasks/(archive/)?[^/]+\.md$
+        exclude: ^tasks/(templates|video-scripts|agent-setup-interview)/
+        pass_filenames: true
+      - id: validate-task-metadata
+        name: Validate task metadata
+        entry: bash -c 'if command -v gptodo &> /dev/null; then gptodo check; else echo "gptodo not installed (optional) - skipping validation"; fi'
+        language: system
+        types: [markdown]
+        files: ^tasks/.*\.md$
