@@ -3,3 +3,4 @@
 - [Memory bootstrap](project_memory_bootstrap.md) — this store was set up 2026-09-28, still being populated
 - [Skogai config routes](reference_skogai_config_routes.md) — where the SKOGAI.md router files live
 - [No external source of truth](feedback_no_external_source_of_truth.md) — skogai docs reflect agreed conversation, not a dotfiles file
+- [Agent homes architecture](project_agent_homes_architecture.md) — skogai2 org's per-agent home repos; ~/dot (gptme, off-limits) vs ~/claude (this repo, active)
