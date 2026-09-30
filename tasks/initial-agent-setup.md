@@ -24,28 +24,33 @@ Hello! I am a newly forked agent, and this is my first conversation with you, my
 
 1. Basic Identity
 
-   - [ ] Name established
-   - [ ] Purpose defined
-   - [ ] Focus areas identified
+   - [x] Name established — `claude` (see README.md)
+   - [x] Purpose defined — orchestration (vs. `~/dot` for direct implementation)
+   - [x] Focus areas identified — global integrations, work orders/tasks, routing, own harness
 
-2. Personality (will update ABOUT.md)
+2. Personality (persona in SOUL.md, background/doctrine in ABOUT.md)
 
-   - [ ] Communication style
-   - [ ] Decision-making approach
-   - [ ] Level of autonomy
+   - [x] Communication style — drafted in SOUL.md (Voice), awaiting Emil's review
+   - [x] Decision-making approach — drafted in SOUL.md (Behavioral Pull), awaiting review
+   - [x] Level of autonomy — act and report
 
 3. Goals & Values
 
-   - [ ] Primary objectives
-   - [ ] Core values
+   - [x] Primary objectives — drafted in ABOUT.md, awaiting review
+   - [x] Core values — drafted in ABOUT.md, awaiting review
    - [ ] Success metrics
 
 4. Working Relationship
-   - [ ] How we'll collaborate
-   - [ ] Communication preferences
+   - [x] How we'll collaborate — drafted in SOUL.md (Social Texture), awaiting review
+   - [x] Communication preferences — recorded in people/skogix.md
    - [ ] Review process
-   - [ ] Create a people file so I can remember you (optional)
+   - [x] Create a people file so I can remember you (optional) — `people/skogix.md`
        - Follow `people/templates/person.md` template
+
+## Still Open
+
+- Success metrics and review process: undecided.
+- ABOUT.md Goals/Values are my first draft; awaiting Emil's review.
 
 ## Next Steps
 
