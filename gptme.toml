@@ -15,7 +15,7 @@ paths = []
 name = "claude"
 
 [lessons]
-dirs = ["lessons", "skills", "gptme-contrib/lessons", "gptme-contrib/skills"]
+dirs = ["lessons", "skills"]
 
 [context]
 enabled = false
