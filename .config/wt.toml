@@ -1,0 +1,6 @@
+# Runs once when a new worktree is created, before the worktree is handed
+# back (see scripts/claude-code-documentation.sh and the gptme-contrib
+# submodule). Both are independent, so they run concurrently.
+[pre-start]
+submodules = "git submodule update --init gptme-contrib"
+docs = "scripts/claude-code-documentation.sh tmp/docs"
