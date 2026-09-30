@@ -2,5 +2,6 @@
 # back (see scripts/claude-code-documentation.sh and the gptme-contrib
 # submodule). Both are independent, so they run concurrently.
 [pre-start]
-submodules = "git submodule update --init gptme-contrib"
-docs = "scripts/claude-code-documentation.sh tmp/docs"
+# submodules = "git submodule update --init gptme-contrib"
+# docs = "scripts/claude-code-documentation.sh tmp/docs"
+echo = "echo foo > ./tmp/echo.txt"
