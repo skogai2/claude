@@ -18,7 +18,7 @@ name = "claude"
 dirs = ["lessons", "skills"]
 
 [context]
-enabled = false
+enabled = true
 
 [context.selector]
 enabled = true

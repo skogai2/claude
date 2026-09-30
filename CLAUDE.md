@@ -8,3 +8,9 @@ type: router
   - @.skogai
 
 </routes>
+
+<skogix>
+
+  - @tmp/docs/ contain the latest claude code documentation.
+
+</skogix>
