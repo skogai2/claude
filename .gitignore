@@ -79,3 +79,4 @@ embeddings/
 # Node/Bun (if using Claude Code backend)
 node_modules/
 .npm/
+/.claude/worktrees
