@@ -1,0 +1,5 @@
+- [Skogai system](user_skogai_system.md) — Emil's routing-based SKOGAI.md config framework across dotfiles/projects
+- [Verify before asserting](feedback_verify_before_asserting.md) — check real file/command state, don't just restate instructions
+- [Memory bootstrap](project_memory_bootstrap.md) — this store was set up 2026-09-28, still being populated
+- [Skogai config routes](reference_skogai_config_routes.md) — where the SKOGAI.md router files live
+- [No external source of truth](feedback_no_external_source_of_truth.md) — skogai docs reflect agreed conversation, not a dotfiles file
