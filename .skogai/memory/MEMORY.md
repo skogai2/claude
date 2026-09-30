@@ -4,3 +4,4 @@
 - [Skogai config routes](reference_skogai_config_routes.md) — where the SKOGAI.md router files live
 - [No external source of truth](feedback_no_external_source_of_truth.md) — skogai docs reflect agreed conversation, not a dotfiles file
 - [Agent homes architecture](project_agent_homes_architecture.md) — ~/claude is now a full gptme-agent-template instance (not the light plugin); ~/dot stays off-limits
+- [Global git hooks landmine](project_global_git_hooks_landmine.md) — core.hooksPath is global, points at ~/claude/dotfiles; identity allowlist patched, scope still unresolved
