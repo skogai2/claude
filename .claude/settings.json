@@ -9,6 +9,6 @@
     }
   },
   "enabledPlugins": {
-    "agent-workspace@agent-workspace": true
+    "agent-workspace@agent-workspace": false
   }
 }
