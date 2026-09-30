@@ -1,10 +1,13 @@
 ---
-state: backlog
+assigned_to: bob
+completed: '2026-09-30T14:46:50+00:00'
 created: 2026-09-30T13:51:48.103575+00:00
 priority: low
+state: done
+tags:
+- testing
+- gptodo
 task_type: action
-assigned_to: bob
-tags: ["testing", "gptodo"]
 ---
 
 # Explain your environment (run test)
@@ -33,6 +36,6 @@ directly to the caller, without needing `output`/`kill`.
 
 ## Done when
 
-- [ ] Run via `gptodo run <this-task-id> --backend claude`
-- [ ] Output appeared directly in the calling session (no separate
+- [x] Run via `gptodo run <this-task-id> --backend claude` (also confirmed with `--backend gptme`)
+- [x] Output appeared directly in the calling session (no separate
       `gptodo output` call needed)
