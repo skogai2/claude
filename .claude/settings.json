@@ -1,0 +1,14 @@
+{
+  "extraKnownMarketplaces": {
+    "agent-workspace": {
+      "source": {
+        "source": "github",
+        "repo": "gptme/agent-workspace-plugin"
+      },
+      "autoUpdate": true
+    }
+  },
+  "enabledPlugins": {
+    "agent-workspace@agent-workspace": true
+  }
+}
