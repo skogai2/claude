@@ -220,3 +220,6 @@
 2. **The submodule.** The contrib packages are already in the repo as the `gptme-contrib` submodule
 - loaded into this session says never to add AI attribution. The harness said to add them, so tell me if you want them.
 - **Pending question from earlier.** The cc-memory hooks in `~/.claude/settings.js
+
+### Guidance
+- . Your `~/dot/AGENTS.md` says never to add AI attribution. The reminder says your own instructions take precedence, so I'd leave it out. That file is dot's home, though, not this repo's. Tell me if yo
