@@ -223,3 +223,299 @@
 
 ### Guidance
 - . Your `~/dot/AGENTS.md` says never to add AI attribution. The reminder says your own instructions take precedence, so I'd leave it out. That file is dot's home, though, not this repo's. Tell me if yo
+
+## Pending — 2026-10-02 20:09 (corrections)
+- **strong_directive**: "Never let"
+  > — try 'gh api -X PUT /user/starred/harrymunro/nelson' manually.` and continue. Never let this step block Stand Down.
+
+On any answer (including a custom "Other" response), set `star_asked: true` in `~/
+
+### Guidance
+- xternal repo target support," never formed/executed/stood down, and its `.active-761d8f37` marker is still live.
+- `origin` carries a long tail of feature branches (`feat/cross-mission-memory`, `feat/
+
+## Pending — 2026-10-02 20:18 (corrections)
+- **strong_directive**: "Never let"
+  > — try 'gh api -X PUT /user/starred/harrymunro/nelson' manually.` and continue. Never let this step block Stand Down.
+
+On any answer (including a custom "Other" response), set `star_asked: true` in `~/
+
+### Guidance
+- xternal repo target support," never formed/executed/stood down, and its `.active-761d8f37` marker is still live.
+- `origin` carries a long tail of feature branches (`feat/cross-mission-memory`, `feat/
+
+## Pending — 2026-10-02 20:19 (corrections)
+- **strong_directive**: "Never let"
+  > — try 'gh api -X PUT /user/starred/harrymunro/nelson' manually.` and continue. Never let this step block Stand Down.
+
+On any answer (including a custom "Other" response), set `star_asked: true` in `~/
+- **restrictive_directive**: "don't add"
+  > aptain must not implement when crew are mustered
+  - `crew-without-canvas.md` — don't add agents that don't shorten the critical path
+  - `drifting-anchorage.md` — don't let task scope creep beyond sa
+
+### Guidance
+- xternal repo target support," never formed/executed/stood down, and its `.active-761d8f37` marker is still live.
+- `origin` carries a long tail of feature branches (`feat/cross-mission-memory`, `feat/
+
+## Pending — 2026-10-02 20:19 (corrections)
+- **strong_directive**: "Never let"
+  > — try 'gh api -X PUT /user/starred/harrymunro/nelson' manually.` and continue. Never let this step block Stand Down.
+
+On any answer (including a custom "Other" response), set `star_asked: true` in `~/
+- **restrictive_directive**: "don't add"
+  > aptain must not implement when crew are mustered
+  - `crew-without-canvas.md` — don't add agents that don't shorten the critical path
+  - `drifting-anchorage.md` — don't let task scope creep beyond sa
+
+### Guidance
+- xternal repo target support," never formed/executed/stood down, and its `.active-761d8f37` marker is still live.
+- `origin` carries a long tail of feature branches (`feat/cross-mission-memory`, `feat/
+
+## Pending — 2026-10-02 20:20 (corrections)
+- **strong_directive**: "Never let"
+  > — try 'gh api -X PUT /user/starred/harrymunro/nelson' manually.` and continue. Never let this step block Stand Down.
+
+On any answer (including a custom "Other" response), set `star_asked: true` in `~/
+- **restrictive_directive**: "don't add"
+  > aptain must not implement when crew are mustered
+  - `crew-without-canvas.md` — don't add agents that don't shorten the critical path
+  - `drifting-anchorage.md` — don't let task scope creep beyond sa
+
+### Guidance
+- xternal repo target support," never formed/executed/stood down, and its `.active-761d8f37` marker is still live.
+- `origin` carries a long tail of feature branches (`feat/cross-mission-memory`, `feat/
+- xternal-repo-target feature), never formed or stood down, matching the "battle plan" commits already on `master`. Reporting it, not touching it, per constraints.
+
+**This reframes the mission a bit.**
+
+## Pending — 2026-10-02 21:20 (corrections)
+- **strong_directive**: "Never let"
+  > — try 'gh api -X PUT /user/starred/harrymunro/nelson' manually.` and continue. Never let this step block Stand Down.
+
+On any answer (including a custom "Other" response), set `star_asked: true` in `~/
+- **restrictive_directive**: "don't add"
+  > aptain must not implement when crew are mustered
+  - `crew-without-canvas.md` — don't add agents that don't shorten the critical path
+  - `drifting-anchorage.md` — don't let task scope creep beyond sa
+
+### Guidance
+- xternal repo target support," never formed/executed/stood down, and its `.active-761d8f37` marker is still live.
+- `origin` carries a long tail of feature branches (`feat/cross-mission-memory`, `feat/
+- xternal-repo-target feature), never formed or stood down, matching the "battle plan" commits already on `master`. Reporting it, not touching it, per constraints.
+
+**This reframes the mission a bit.** 
+- for 8 real steps), and it was never meant as reference documentation.
+
+No mermaid diagram, no image, no current authoritative flowchart anywhere in the tree.
+
+**Tools/sc
+- ch *partially* documented but never *synthesized* into one picture anywhere, upstream or fork. That's a second, more substantial gap than what Checkpoint 1 surfaced — worth folding into the Effects as
+
+## Pending — 2026-10-02 21:24 (corrections)
+- **strong_directive**: "Never let"
+  > — try 'gh api -X PUT /user/starred/harrymunro/nelson' manually.` and continue. Never let this step block Stand Down.
+
+On any answer (including a custom "Other" response), set `star_asked: true` in `~/
+- **restrictive_directive**: "don't add"
+  > aptain must not implement when crew are mustered
+  - `crew-without-canvas.md` — don't add agents that don't shorten the critical path
+  - `drifting-anchorage.md` — don't let task scope creep beyond sa
+
+### Guidance
+- xternal repo target support," never formed/executed/stood down, and its `.active-761d8f37` marker is still live.
+- `origin` carries a long tail of feature branches (`feat/cross-mission-memory`, `feat/
+- xternal-repo-target feature), never formed or stood down, matching the "battle plan" commits already on `master`. Reporting it, not touching it, per constraints.
+
+**This reframes the mission a bit.** 
+- for 8 real steps), and it was never meant as reference documentation.
+
+No mermaid diagram, no image, no current authoritative flowchart anywhere in the tree.
+
+**Tools/sc
+- ch *partially* documented but never *synthesized* into one picture anywhere, upstream or fork. That's a second, more substantial gap than what Checkpoint 1 surfaced — worth folding into the Effects as
+
+## Pending — 2026-10-02 22:10 (corrections)
+- **strong_directive**: "Never let"
+  > — try 'gh api -X PUT /user/starred/harrymunro/nelson' manually.` and continue. Never let this step block Stand Down.
+
+On any answer (including a custom "Other" response), set `star_asked: true` in `~/
+- **restrictive_directive**: "don't add"
+  > aptain must not implement when crew are mustered
+  - `crew-without-canvas.md` — don't add agents that don't shorten the critical path
+  - `drifting-anchorage.md` — don't let task scope creep beyond sa
+
+### Guidance
+- xternal repo target support," never formed/executed/stood down, and its `.active-761d8f37` marker is still live.
+- `origin` carries a long tail of feature branches (`feat/cross-mission-memory`, `feat/
+- xternal-repo-target feature), never formed or stood down, matching the "battle plan" commits already on `master`. Reporting it, not touching it, per constraints.
+
+**This reframes the mission a bit.** 
+- for 8 real steps), and it was never meant as reference documentation.
+
+No mermaid diagram, no image, no current authoritative flowchart anywhere in the tree.
+
+**Tools/sc
+- ch *partially* documented but never *synthesized* into one picture anywhere, upstream or fork. That's a second, more substantial gap than what Checkpoint 1 surfaced — worth folding into the Effects as
+- ean a few different things in practice:
+
+## Pending — 2026-10-02 22:12 (corrections)
+- **strong_directive**: "Never let"
+  > — try 'gh api -X PUT /user/starred/harrymunro/nelson' manually.` and continue. Never let this step block Stand Down.
+
+On any answer (including a custom "Other" response), set `star_asked: true` in `~/
+- **restrictive_directive**: "don't add"
+  > aptain must not implement when crew are mustered
+  - `crew-without-canvas.md` — don't add agents that don't shorten the critical path
+  - `drifting-anchorage.md` — don't let task scope creep beyond sa
+
+### Guidance
+- xternal repo target support," never formed/executed/stood down, and its `.active-761d8f37` marker is still live.
+- `origin` carries a long tail of feature branches (`feat/cross-mission-memory`, `feat/
+- xternal-repo-target feature), never formed or stood down, matching the "battle plan" commits already on `master`. Reporting it, not touching it, per constraints.
+
+**This reframes the mission a bit.** 
+- for 8 real steps), and it was never meant as reference documentation.
+
+No mermaid diagram, no image, no current authoritative flowchart anywhere in the tree.
+
+**Tools/sc
+- ch *partially* documented but never *synthesized* into one picture anywhere, upstream or fork. That's a second, more substantial gap than what Checkpoint 1 surfaced — worth folding into the Effects as
+- ean a few different things in practice:
+
+## Pending — 2026-10-02 22:27 (corrections)
+- **strong_directive**: "Never let"
+  > — try 'gh api -X PUT /user/starred/harrymunro/nelson' manually.` and continue. Never let this step block Stand Down.
+
+On any answer (including a custom "Other" response), set `star_asked: true` in `~/
+- **restrictive_directive**: "don't add"
+  > aptain must not implement when crew are mustered
+  - `crew-without-canvas.md` — don't add agents that don't shorten the critical path
+  - `drifting-anchorage.md` — don't let task scope creep beyond sa
+
+### Confirmations
+- **positive_confirmation**: "sounds good. please go ahead"
+
+### Guidance
+- xternal repo target support," never formed/executed/stood down, and its `.active-761d8f37` marker is still live.
+- `origin` carries a long tail of feature branches (`feat/cross-mission-memory`, `feat/
+- xternal-repo-target feature), never formed or stood down, matching the "battle plan" commits already on `master`. Reporting it, not touching it, per constraints.
+
+**This reframes the mission a bit.** 
+- for 8 real steps), and it was never meant as reference documentation.
+
+No mermaid diagram, no image, no current authoritative flowchart anywhere in the tree.
+
+**Tools/sc
+- ch *partially* documented but never *synthesized* into one picture anywhere, upstream or fork. That's a second, more substantial gap than what Checkpoint 1 surfaced — worth folding into the Effects as
+- ean a few different things in practice:
+
+## Pending — 2026-10-02 22:30 (corrections)
+- **strong_directive**: "Never let"
+  > — try 'gh api -X PUT /user/starred/harrymunro/nelson' manually.` and continue. Never let this step block Stand Down.
+
+On any answer (including a custom "Other" response), set `star_asked: true` in `~/
+- **restrictive_directive**: "don't add"
+  > aptain must not implement when crew are mustered
+  - `crew-without-canvas.md` — don't add agents that don't shorten the critical path
+  - `drifting-anchorage.md` — don't let task scope creep beyond sa
+
+### Confirmations
+- **positive_confirmation**: "sounds good. please go ahead"
+
+### Guidance
+- xternal repo target support," never formed/executed/stood down, and its `.active-761d8f37` marker is still live.
+- `origin` carries a long tail of feature branches (`feat/cross-mission-memory`, `feat/
+- xternal-repo-target feature), never formed or stood down, matching the "battle plan" commits already on `master`. Reporting it, not touching it, per constraints.
+
+**This reframes the mission a bit.** 
+- for 8 real steps), and it was never meant as reference documentation.
+
+No mermaid diagram, no image, no current authoritative flowchart anywhere in the tree.
+
+**Tools/sc
+- ch *partially* documented but never *synthesized* into one picture anywhere, upstream or fork. That's a second, more substantial gap than what Checkpoint 1 surfaced — worth folding into the Effects as
+- ean a few different things in practice:
+
+## Pending — 2026-10-02 23:18 (corrections)
+- **strong_directive**: "Never let"
+  > — try 'gh api -X PUT /user/starred/harrymunro/nelson' manually.` and continue. Never let this step block Stand Down.
+
+On any answer (including a custom "Other" response), set `star_asked: true` in `~/
+- **restrictive_directive**: "don't add"
+  > aptain must not implement when crew are mustered
+  - `crew-without-canvas.md` — don't add agents that don't shorten the critical path
+  - `drifting-anchorage.md` — don't let task scope creep beyond sa
+
+### Confirmations
+- **positive_confirmation**: "sounds good. please go ahead"
+
+### Guidance
+- xternal repo target support," never formed/executed/stood down, and its `.active-761d8f37` marker is still live.
+- `origin` carries a long tail of feature branches (`feat/cross-mission-memory`, `feat/
+- xternal-repo-target feature), never formed or stood down, matching the "battle plan" commits already on `master`. Reporting it, not touching it, per constraints.
+
+**This reframes the mission a bit.** 
+- for 8 real steps), and it was never meant as reference documentation.
+
+No mermaid diagram, no image, no current authoritative flowchart anywhere in the tree.
+
+**Tools/sc
+- ch *partially* documented but never *synthesized* into one picture anywhere, upstream or fork. That's a second, more substantial gap than what Checkpoint 1 surfaced — worth folding into the Effects as
+- ean a few different things in practice:
+
+## Pending — 2026-10-02 23:22 (corrections)
+- **strong_directive**: "Never let"
+  > — try 'gh api -X PUT /user/starred/harrymunro/nelson' manually.` and continue. Never let this step block Stand Down.
+
+On any answer (including a custom "Other" response), set `star_asked: true` in `~/
+- **restrictive_directive**: "don't add"
+  > aptain must not implement when crew are mustered
+  - `crew-without-canvas.md` — don't add agents that don't shorten the critical path
+  - `drifting-anchorage.md` — don't let task scope creep beyond sa
+
+### Confirmations
+- **positive_confirmation**: "sounds good. please go ahead"
+- **explicit_approval**: "approved, go ahead"
+
+### Guidance
+- xternal repo target support," never formed/executed/stood down, and its `.active-761d8f37` marker is still live.
+- `origin` carries a long tail of feature branches (`feat/cross-mission-memory`, `feat/
+- xternal-repo-target feature), never formed or stood down, matching the "battle plan" commits already on `master`. Reporting it, not touching it, per constraints.
+
+**This reframes the mission a bit.** 
+- for 8 real steps), and it was never meant as reference documentation.
+
+No mermaid diagram, no image, no current authoritative flowchart anywhere in the tree.
+
+**Tools/sc
+- ch *partially* documented but never *synthesized* into one picture anywhere, upstream or fork. That's a second, more substantial gap than what Checkpoint 1 surfaced — worth folding into the Effects as
+- ean a few different things in practice:
+
+## Pending — 2026-10-02 23:34 (corrections)
+- **strong_directive**: "Never let"
+  > — try 'gh api -X PUT /user/starred/harrymunro/nelson' manually.` and continue. Never let this step block Stand Down.
+
+On any answer (including a custom "Other" response), set `star_asked: true` in `~/
+- **restrictive_directive**: "don't add"
+  > aptain must not implement when crew are mustered
+  - `crew-without-canvas.md` — don't add agents that don't shorten the critical path
+  - `drifting-anchorage.md` — don't let task scope creep beyond sa
+
+### Confirmations
+- **positive_confirmation**: "sounds good. please go ahead"
+- **explicit_approval**: "approved, go ahead"
+
+### Guidance
+- xternal repo target support," never formed/executed/stood down, and its `.active-761d8f37` marker is still live.
+- `origin` carries a long tail of feature branches (`feat/cross-mission-memory`, `feat/
+- xternal-repo-target feature), never formed or stood down, matching the "battle plan" commits already on `master`. Reporting it, not touching it, per constraints.
+
+**This reframes the mission a bit.** 
+- for 8 real steps), and it was never meant as reference documentation.
+
+No mermaid diagram, no image, no current authoritative flowchart anywhere in the tree.
+
+**Tools/sc
+- ch *partially* documented but never *synthesized* into one picture anywhere, upstream or fork. That's a second, more substantial gap than what Checkpoint 1 surfaced — worth folding into the Effects as
+- ean a few different things in practice:
