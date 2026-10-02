@@ -48,9 +48,26 @@ memory entry to follow, or check .skogai/memory/ for the writeup).
 - **CLI does not sign messages**: HMAC is library-only and advisory (`verified=False`,
   never rejects). Sender is a free-form string: `send mallory ... --to claude` succeeds.
   So it gives no identity guarantee; real isolation must come from unix perms on the DB.
-- Shared DB needs a group-writable dir (`g+rws` on /skogai/coordination, umask 002):
-  SQLite WAL creates -wal/-shm files that every agent user must be able to write.
-  /skogai currently has no `skogai` group/setgid, so multi-user not testable yet.
+- Shared DB needs a group-writable dir (`2775` on /skogai/coordination): SQLite WAL
+  creates -wal/-shm files that every agent user must be able to write.
 - Already used: gptodo `--skip-claimed` reads `state/coordination/coord.db`.
   Worktree push guard (warn mode) exists but is not wired into core.hooksPath.
-- Test data removed from /skogai after the run.
+
+## Multi-user test (real users dot/claude/skogix, group skogai, 2026-10-02) — PASSED
+- Cross-user: claim contention (dot wins, claude DENIED), targeted messages, non-holder
+  `work-complete` fails / holder succeeds, human user reads the same DB.
+- 40 parallel sends from two users: 40/40 stored, no lock errors.
+- **Gotcha**: SQLite creates DB files as 0644 and neither umask nor a default ACL can add
+  group-write (ACL mask becomes `r--`) -> "attempt to write a readonly database" for the
+  second user. Fix: pre-create `coord.db` as 0664 in a setgid group dir; -wal/-shm
+  inherit the main DB's mode.
+- Agents cannot use `~/.local/bin` of skogix (home not traversable). Shared install:
+  `/skogai/bin/gptme-coordination` -> venv in `/skogai/tools/` on system python
+  (snapshot install; reinstall to update).
+- Setup scripts (gitignored, in `tmp/`): create-skogai-agents.sh,
+  setup-skogai-coordination.sh, test-coordination-multiuser.sh.
+
+## Verdict
+Adopt for claims + handoffs at /skogai/coordination/coord.db. Do not rely on sender
+identity (unsigned CLI). Remaining: wire push guard (warn mode), pick first real
+handoff use case, decide who owns the shared install updates.
