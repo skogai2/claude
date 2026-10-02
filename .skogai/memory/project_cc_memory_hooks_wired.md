@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: 28e156c9-b460-414d-9f5a-2efa465dcfd5
-  modified: 2026-10-01T23:31:46.727Z
+  modified: 2026-10-02T15:12:14.822Z
 ---
 
 As of 2026-10-02, the `gptme-cc-memory` package (source:
@@ -49,11 +49,21 @@ Context" blocks show up unexpectedly in a prompt, that's this pipeline —
 not a hallucination or injected content from elsewhere. If memory injection
 seems stale or wrong, check `~/claude/.skogai/state/cc-memory/metadata.json`
 (injection history/confidence) and `memory/pending-updates.md` before
-assuming the static memory files themselves are the problem. If you touch
-`gptme-contrib/packages/gptme-cc-memory/src/...` again, the installed CLI
-is a **non-editable** `uv tool install` snapshot — changes need
-`uv tool install --reinstall ~/claude/gptme-contrib/packages/gptme-cc-memory`
-to take effect, they don't apply live.
+assuming the static memory files themselves are the problem.
+
+**Which binary the hooks run (updated 2026-10-02):** both wrappers prefer
+`/skogai/bin/gptme-cc-memory-*` (override dir with `SKOGAI_BIN`) and fall back
+to the `uv tool install` copy on PATH. The `/skogai/bin` launchers come from
+`skogai2/dash-skogai` (PR #1 / `admin/install-tools.sh`) and install from the
+fork `skogai2/gptme-contrib`, pinned to a commit SHA (tag `skogai-2026.10.02`,
+which carries the extractor fix). Until `install-tools.sh` has run on `/skogai`
+the fallback is what actually runs. Launchers build on first call (~12 s,
+longer than the 10 s UserPromptSubmit timeout), so warm each once after
+installing. Originals of the wrappers were backed up to `/tmp/hooks-backup/`
+(not durable). If you change `gptme-cc-memory` source: commit to the fork, tag,
+bump `CONTRIB_TAG`/`CONTRIB_REF` in dash-skogai's `scripts/gen-bin.py`, rerun
+`install-tools.sh`. A fallback `uv tool install` copy is a **non-editable**
+snapshot and needs `uv tool install --reinstall <path>`.
 
 Related: [[project_agent_homes_architecture]]. A sibling package,
 `gptme-coordination` (inter-agent work queue + messaging), was *not* wired

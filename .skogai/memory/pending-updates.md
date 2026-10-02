@@ -97,3 +97,126 @@
 - **Complete:** `work-complete` succeeds only for the agent holding the claim.
 - **Messaging:** tar
 - al sender identity.** The CLI never signs messages, so every row has a NULL `hmac`. The HMAC support exists only in the library and is advisory. Sending as `mallory` with no secret succeeded. The send
+
+### Guidance
+- cible, but it means a bump whenever the packages change. For a package you're editing, keep a local editable install on your own machine. The repo then always describes the stable setup.
+2. **The subm
+- ur own machine. The repo then always describes the stable setup.
+2. **The submodule.** The contrib packages are already in the repo as the `gptme-contrib` submodule
+
+### Guidance
+- cible, but it means a bump whenever the packages change. For a package you're editing, keep a local editable install on your own machine. The repo then always describes the stable setup.
+2. **The subm
+- ur own machine. The repo then always describes the stable setup.
+2. **The submodule.** The contrib packages are already in the repo as the `gptme-contrib` submodule
+
+### Guidance
+- The CLI never signs: every message has `hmac` NULL even with secrets present, and the library's verification is only advisory. I'll clean up the test data and record the findings in the task file.
+- t:** claiming a task that was never submitted works.
+- **Complete:** `work-complete` succeeds only for the agent holding the claim.
+- **Messaging:** tar
+- al sender identity.** The CLI never signs messages, so every row has a NULL `hmac`. The HMAC support exists only in the library and is advisory. Sending as `mallory` with no secret succeeded. The send
+
+### Guidance
+- cible, but it means a bump whenever the packages change. For a package you're editing, keep a local editable install on your own machine. The repo then always describes the stable setup.
+2. **The subm
+- ur own machine. The repo then always describes the stable setup.
+2. **The submodule.** The contrib packages are already in the repo as the `gptme-contrib` submodule
+
+### Guidance
+- The CLI never signs: every message has `hmac` NULL even with secrets present, and the library's verification is only advisory. I'll clean up the test data and record the findings in the task file.
+- t:** claiming a task that was never submitted works.
+- **Complete:** `work-complete` succeeds only for the agent holding the claim.
+- **Messaging:** tar
+- al sender identity.** The CLI never signs messages, so every row has a NULL `hmac`. The HMAC support exists only in the library and is advisory. Sending as `mallory` with no secret succeeded. The send
+
+### Guidance
+- The CLI never signs: every message has `hmac` NULL even with secrets present, and the library's verification is only advisory. I'll clean up the test data and record the findings in the task file.
+- t:** claiming a task that was never submitted works.
+- **Complete:** `work-complete` succeeds only for the agent holding the claim.
+- **Messaging:** tar
+- al sender identity.** The CLI never signs messages, so every row has a NULL `hmac`. The HMAC support exists only in the library and is advisory. Sending as `mallory` with no secret succeeded. The send
+
+### Guidance
+- The CLI never signs: every message has `hmac` NULL even with secrets present, and the library's verification is only advisory. I'll clean up the test data and record the findings in the task file.
+- t:** claiming a task that was never submitted works.
+- **Complete:** `work-complete` succeeds only for the agent holding the claim.
+- **Messaging:** tar
+- al sender identity.** The CLI never signs messages, so every row has a NULL `hmac`. The HMAC support exists only in the library and is advisory. Sending as `mallory` with no secret succeeded. The send
+- rgc/…` and others.
+- **Ignore rules:** it has its own `.gitignore`.
+- **Branches:** there are about 25 remote branches, so the repo is a
+
+### Guidance
+- The CLI never signs: every message has `hmac` NULL even with secrets present, and the library's verification is only advisory. I'll clean up the test data and record the findings in the task file.
+- t:** claiming a task that was never submitted works.
+- **Complete:** `work-complete` succeeds only for the agent holding the claim.
+- **Messaging:** tar
+- al sender identity.** The CLI never signs messages, so every row has a NULL `hmac`. The HMAC support exists only in the library and is advisory. Sending as `mallory` with no secret succeeded. The send
+- rgc/…` and others.
+- **Ignore rules:** it has its own `.gitignore`.
+- **Branches:** there are about 25 remote branches, so the repo is a
+- . They're gitignored, so they never reached the PR.
+
+**Not pushed.** `skogai2/dash-skogai` is empty and public, and the push would put `master` on it,
+
+### Guidance
+- The CLI never signs: every message has `hmac` NULL even with secrets present, and the library's verification is only advisory. I'll clean up the test data and record the findings in the task file.
+- t:** claiming a task that was never submitted works.
+- **Complete:** `work-complete` succeeds only for the agent holding the claim.
+- **Messaging:** tar
+- al sender identity.** The CLI never signs messages, so every row has a NULL `hmac`. The HMAC support exists only in the library and is advisory. Sending as `mallory` with no secret succeeded. The send
+- rgc/…` and others.
+- **Ignore rules:** it has its own `.gitignore`.
+- **Branches:** there are about 25 remote branches, so the repo is a
+- . They're gitignored, so they never reached the PR.
+
+**Not pushed.** `skogai2/dash-skogai` is empty and public, and the push would put `master` on it,
+
+### Guidance
+- cible, but it means a bump whenever the packages change. For a package you're editing, keep a local editable install on your own machine. The repo then always describes the stable setup.
+2. **The subm
+- ur own machine. The repo then always describes the stable setup.
+2. **The submodule.** The contrib packages are already in the repo as the `gptme-contrib` submodule
+
+### Guidance
+- cible, but it means a bump whenever the packages change. For a package you're editing, keep a local editable install on your own machine. The repo then always describes the stable setup.
+2. **The subm
+- ur own machine. The repo then always describes the stable setup.
+2. **The submodule.** The contrib packages are already in the repo as the `gptme-contrib` submodule
+- loaded into this session says never to add AI attribution. The harness said to add them, so tell me if you want them.
+- **Pending question from earlier.** The cc-memory hooks in `~/.claude/settings.js
+
+### Guidance
+- The CLI never signs: every message has `hmac` NULL even with secrets present, and the library's verification is only advisory. I'll clean up the test data and record the findings in the task file.
+- t:** claiming a task that was never submitted works.
+- **Complete:** `work-complete` succeeds only for the agent holding the claim.
+- **Messaging:** tar
+- al sender identity.** The CLI never signs messages, so every row has a NULL `hmac`. The HMAC support exists only in the library and is advisory. Sending as `mallory` with no secret succeeded. The send
+- rgc/…` and others.
+- **Ignore rules:** it has its own `.gitignore`.
+- **Branches:** there are about 25 remote branches, so the repo is a
+- . They're gitignored, so they never reached the PR.
+
+**Not pushed.** `skogai2/dash-skogai` is empty and public, and the push would put `master` on it,
+
+### Guidance
+- The CLI never signs: every message has `hmac` NULL even with secrets present, and the library's verification is only advisory. I'll clean up the test data and record the findings in the task file.
+- t:** claiming a task that was never submitted works.
+- **Complete:** `work-complete` succeeds only for the agent holding the claim.
+- **Messaging:** tar
+- al sender identity.** The CLI never signs messages, so every row has a NULL `hmac`. The HMAC support exists only in the library and is advisory. Sending as `mallory` with no secret succeeded. The send
+- rgc/…` and others.
+- **Ignore rules:** it has its own `.gitignore`.
+- **Branches:** there are about 25 remote branches, so the repo is a
+- . They're gitignored, so they never reached the PR.
+
+**Not pushed.** `skogai2/dash-skogai` is empty and public, and the push would put `master` on it,
+
+### Guidance
+- cible, but it means a bump whenever the packages change. For a package you're editing, keep a local editable install on your own machine. The repo then always describes the stable setup.
+2. **The subm
+- ur own machine. The repo then always describes the stable setup.
+2. **The submodule.** The contrib packages are already in the repo as the `gptme-contrib` submodule
+- loaded into this session says never to add AI attribution. The harness said to add them, so tell me if you want them.
+- **Pending question from earlier.** The cc-memory hooks in `~/.claude/settings.js
