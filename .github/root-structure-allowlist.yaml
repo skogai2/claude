@@ -36,6 +36,7 @@ allowed_entries:
   - journal
   - knowledge
   - lessons
+  - memory
   - people
   - projects
   - scripts

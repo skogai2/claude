@@ -1,6 +1,7 @@
 ## Previous Session
 **Goal**: hi claude! I'd like to look over gptme-coordinate from the gptodo task lisk and see if it's something we could use / take advantage of
-**Last turn**: Short version: **`gptme-coordination` is worth using, but narrowly.** (There's no `gptme-coordinate`; I assume this is task #9 in gptodo, `evaluate-gptme-coordination-for-multi-agent-messag`.)
+**Last turn**: The agents couldn't run the tool because `/home/skogix` isn't traversable by other users, so I made a shared install they can use. I haven't tested anything across users yet.
 
-**What
-**Messages**: 4 | **Tool calls**: 0
+**Shared install**
+- `/s
+**Messages**: 16 | **Tool calls**: 0

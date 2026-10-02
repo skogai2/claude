@@ -84,6 +84,90 @@ Valid fields and values:
 - `--add/--remove tags`: any string without spaces
 - `--add/--remove depends`: any valid task ID
 
+## Sub-Agent Spawning (`gptodo spawn` / `gptodo run`)
+
+`gptodo` can hand a task off to a fresh agent process instead of working it
+in the current session.
+
+```sh
+# Synchronous: blocks until done, output returned directly
+gptodo run <task-id> --backend claude
+gptodo run <task-id> --backend gptme
+
+# Background: launches in tmux and returns immediately
+gptodo spawn <task-id> --backend claude
+gptodo spawn <task-id> --backend gptme
+```
+
+Use `run` when you want to wait for the result in the calling session. Use
+`spawn` for a long-running or parallel task; monitor and clean it up with:
+
+```sh
+gptodo sessions                 # List all sub-agent sessions (status may be
+                                 # stale — see note below)
+gptodo output <session-id>      # Refresh status + print output (live tmux
+                                 # pane output while running, saved output
+                                 # once done)
+gptodo kill <session-id>        # Terminate a running background session
+```
+
+`gptodo sessions` just lists each session's last-known status from disk — it
+does not refresh it. `gptodo output <session-id>` does refresh (it calls
+`check_session` internally), so if `sessions` shows something as `running`
+long after you'd expect it to be done, run `gptodo output` on it before
+assuming it's actually stuck.
+
+### How the prompt is built — and the recursion trap
+
+If you don't pass `--prompt`, `gptodo` builds the sub-agent's entire prompt
+from the task file verbatim: `"Work on this task:\n\n# <task-id>\n\n<the
+whole markdown body>\n\nFocus on making progress on this task..."`. That
+includes *every* section of the task body, with no distinction between
+"instructions for the spawned agent" and "a checklist for whoever spawned
+it."
+
+This matters because tasks commonly carry a "Done when" / acceptance
+checklist meant for the **orchestrator** (the session that ran `gptodo
+spawn` and should verify the result afterward) — not for the spawned agent
+itself. If that checklist mentions `gptodo spawn`/`run`/`output`/`kill`, a
+spawned `claude`-backend agent reading the raw task file can misread it as
+its own job and call `gptodo spawn` on the same task again — which spawns a
+child that makes the identical mistake, and so on. We hit exactly this
+(confirmed 2026-10-02): a single `gptodo spawn ... --backend claude` call
+cascaded three generations deep before stopping, because the task's "Done
+when" section looked, from inside the sub-agent's prompt, like work it was
+supposed to do.
+
+Two mitigations, use both:
+
+1. **Name checklist sections unambiguously** in the task body, e.g.
+   `## Orchestrator checklist (for whoever ran \`gptodo spawn\` — NOT
+   instructions for the spawned agent above)` instead of a bare `## Done
+   when`.
+2. **Scope the sub-agent with `--system-prompt-file`** (claude backend
+   only — it's passed as `--append-system-prompt-file`):
+
+   ```sh
+   gptodo spawn <task-id> --backend claude \
+     --system-prompt-file tasks/templates/sub-agent-system-prompt.md
+   ```
+
+   `tasks/templates/sub-agent-system-prompt.md` is a ready-made prompt that
+   tells the sub-agent: do only the one task you were given, treat any
+   "Done when"/"orchestrator checklist" section as not yours to act on,
+   never call `gptodo spawn`/`run` yourself, and never pick up extra work
+   from `gptodo ready`/`next`. It's worth appending on every `claude`-backend
+   spawn, not just ones you suspect are risky — the recursion trap above is
+   easy to trigger by accident since it comes from the task file's own
+   wording, not from anything unusual about the spawn call.
+
+   This also matters because spawned sessions in this repo inherit the same
+   `SessionStart` hook (`scripts/context.sh`) an interactive session gets —
+   full task list, journal, git status — so a spawned agent can look and
+   feel like a general autonomous agent even though it was only meant to do
+   one narrow thing. The system prompt keeps it scoped regardless of what
+   ambient context leaks in.
+
 ## Task Format
 
 ### Task Metadata
