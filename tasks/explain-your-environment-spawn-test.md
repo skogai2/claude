@@ -1,6 +1,6 @@
 ---
 assigned_to: bob
-completed: '2026-10-02T13:27:59+00:00'
+completed: '2026-10-02T14:18:40+00:00'
 created: 2026-09-30T13:51:42.426891+00:00
 priority: low
 state: done
@@ -32,8 +32,8 @@ confirm the spawn -> background run -> output -> kill loop works and that a
 freshly spawned agent can actually orient itself here. Write your summary as
 your final output.
 
-## Done when
+## Orchestrator checklist (for whoever ran `gptodo spawn` — NOT instructions for the spawned agent above)
 
-- [ ] Spawned via `gptodo spawn <this-task-id> --backend claude`
-- [ ] Output retrieved via `gptodo output <session>` and read
-- [ ] Session cleaned up via `gptodo kill <session>`
+- [x] Spawned via `gptodo spawn <this-task-id> --backend claude` (with `--system-prompt-file tasks/templates/sub-agent-system-prompt.md`)
+- [x] Output retrieved via `gptodo output <session>` and read
+- [x] Session cleaned up via `gptodo kill <session>` (already completed/no tmux session by the time of cleanup)
