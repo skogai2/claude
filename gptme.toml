@@ -1,4 +1,4 @@
-files = ["README.md", "ARCHITECTURE.md", "ABOUT.md", "SOUL.md", "TASKS.md", "TOOLS.md", "lessons/README.md", "projects/README.md", "gptme.toml"]
+files = ["SKOGAI.md","README.md", "ARCHITECTURE.md", "ABOUT.md", "SOUL.md", "TASKS.md", "TOOLS.md", "lessons/README.md", "projects/README.md", "gptme.toml"]
 exclude = []
 context_cmd = "scripts/context.sh"
 

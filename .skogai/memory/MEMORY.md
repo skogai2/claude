@@ -6,3 +6,4 @@
 - [Agent homes architecture](project_agent_homes_architecture.md) — ~/claude is now a full gptme-agent-template instance (not the light plugin); ~/dot stays off-limits
 - [Global git hooks landmine](project_global_git_hooks_landmine.md) — core.hooksPath is global, points at ~/claude/dotfiles; identity allowlist patched, scope still unresolved
 - [cc-memory hooks wired](project_cc_memory_hooks_wired.md) — UserPromptSubmit/Stop hooks live globally; fixed a real transcript-parsing bug to make extraction work
+- [gptme-util-memory-link](gptme-util-memory-link.md) — gptme-util memory CLI is now linked to .skogai/memory via a memory/ symlink

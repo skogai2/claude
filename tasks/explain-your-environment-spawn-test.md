@@ -1,10 +1,13 @@
 ---
-state: backlog
+assigned_to: bob
+completed: '2026-10-02T13:27:59+00:00'
 created: 2026-09-30T13:51:42.426891+00:00
 priority: low
+state: done
+tags:
+- testing
+- gptodo
 task_type: action
-assigned_to: bob
-tags: ["testing", "gptodo"]
 ---
 
 # Explain your environment (spawn test)
