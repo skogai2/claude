@@ -1448,3 +1448,40 @@ That is th
 - `.gitignore`: excludes `fish/fish_variables` (fish writes it at runtime) and `fish/plug
 - could be one concept or two. Rule: a fixed list of area words (`CONFIG`, `DATA`, `STATE`, `CLAUDE`, ...), and the area word is the onl
 - o. It's a one-line removal whenever you want it gone.
+
+### Guidance
+- | Secrets | a secret manager, never atuin, mise, or the repo |
+
+**4. Repo rules**
+- Versioned config is referenced through `links.txt` and installed with `link.sh
+
+### Confirmations
+- **positive_confirmation**: "i normally do not like submodules but is this not the correct usage for them overall? maybe keep them un-initialized as "
+
+### Guidance
+- gptme-contrib` specifically, "always initialized" is the right default for this agent. It's the shared base the workspace is built on, not an optional project. Making it lazy would mean rewriting thos
+
+### Guidance
+- | Secrets | a secret manager, never atuin, mise, or the repo |
+
+**4. Repo rules**
+- Versioned config is referenced through `links.txt` and installed with `link.sh
+- s without a slash, so scripts never build `//`.
+- **Naming drift.** A `skogai env check` could flag overlapping names like `XDG_SKOGAI_DIR` and `SK
+
+### Confirmations
+- **positive_confirmation**: "i normally do not like submodules but is this not the correct usage for them overall? maybe keep them un-initialized as "
+
+### Guidance
+- gptme-contrib` specifically, "always initialized" is the right default for this agent. It's the shared base the workspace is built on, not an optional project. Making it lazy would mean rewriting thos
+
+### Guidance
+- | Secrets | a secret manager, never atuin, mise, or the repo |
+
+**4. Repo rules**
+- Versioned config is referenced through `links.txt` and installed with `link.sh
+- s without a slash, so scripts never build `//`.
+- **Naming drift.** A `skogai env check` could flag overlapping names like `XDG_SKOGAI_DIR` and `SK
+- and order of work:** secrets never go into atuin, mise or the repo, `~/dot` stays off-limits, and migration is a separate reviewed step.
+
+I didn't check whether a `skogai` CLI already exists, and the
