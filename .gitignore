@@ -80,3 +80,7 @@ embeddings/
 node_modules/
 .npm/
 /.claude/worktrees
+
+# cc-memory transient hook output (regenerated each session)
+.skogai/memory/pending-*.md
+.skogai/memory/.memory.lock
