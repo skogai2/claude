@@ -7,3 +7,8 @@
 - [Global git hooks landmine](project_global_git_hooks_landmine.md) — core.hooksPath is global, points at ~/claude/dotfiles; identity allowlist patched, scope still unresolved
 - [cc-memory hooks wired](project_cc_memory_hooks_wired.md) — UserPromptSubmit/Stop hooks live globally; fixed a real transcript-parsing bug to make extraction work
 - [gptme-util-memory-link](gptme-util-memory-link.md) — gptme-util memory CLI is now linked to .skogai/memory via a memory/ symlink
+- [Orchestration dispatch gaps](project_orchestration_dispatch_gaps.md) — herdr work-order pipeline gaps found in first dispatch batch; Emil speccing fixes
+- [Podman quadlet fleet recovery](project_podman_quadlet_fleet_recovery.md) — stateless fleet recovery status + live Claude OAuth token leaked in public skogai/skogchattr repo (unresolved)
+- [Skogai write/commit immediately](feedback_skogai_write_and_commit_immediately.md) — write decisions to disk ASAP, keep everyday skogai work staged/committed
+- [OKF adoption proposal](project_okf_adoption_proposal.md) — settled: real OKF bundle live at skogai/.skogai/knowledge, old drafts deleted
+- [Stop escalating, follow user literally](feedback_stop_escalating_follow_user_literally.md) — severe recurring pattern: do the literal small thing asked, don't chain into more investigation/fixes
